@@ -14,7 +14,6 @@ export const getMovies = async (req: Request, res: Response) => {
     
                     if (searchResults && searchResults.length > 0) {
                         const posterPath = searchResults[0].poster_path;
-                        console.log("poster path - ", posterPath);
                         return {
                             ...movie,
                             poster_url: tmdbService.getFullPosterUrl(posterPath)
