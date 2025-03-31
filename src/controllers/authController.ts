@@ -1,4 +1,3 @@
-import { Request, Response } from "express";
 import { RequestHandler } from "express";
 import dbPromise from "../config/db";
 import bcrypt from "bcrypt";
@@ -8,29 +7,35 @@ import jwt from "jsonwebtoken";
 dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET;
 
-if (!SECRET_KEY) {
-    throw new Error("JWT_SECRET is not defined in environment variables");
-}
-
 export const signup: RequestHandler = async (req, res) => {
-    const {username, password, role} = req.body;
+    const { username, password, role } = req.body;
+
     if (!username || !password || !role) {
-        res.status(400).json({ message: "Error❌! All fields are required"});
+        res.status(400).json({ message: "Error❌! All fields are required" });
         return;
     }
-    console.log(username, password, role);
 
     try {
         const hashedPw = await bcrypt.hash(password, 8);
         const db = await dbPromise;
+
+        // Prevent duplicate usernames
+        const [existingUsers]: any = await db.execute("SELECT * FROM users WHERE username = ?", [username]);
+        if (existingUsers.length > 0) {
+            res.status(400).json({ message: "Username already exists❌" });
+            return;
+        }
+
         await db.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", [username, hashedPw, role]);
 
-        res.status(201).json({ message: "User registered successfully!✅"});
+        res.status(201).json({ message: `User (${role}) registered successfully!✅` });
     } catch (err) {
         console.error("Error registering user:", err);
-        res.status(500).json({ message: "Error❌! Failed to register user"});
+        res.status(500).json({ message: "Error❌! Failed to register user" });
     }
-}
+};
+
+
 
 export const login: RequestHandler = async (req, res) => {
     const { username, password } = req.body;
