@@ -10,7 +10,7 @@ export const getMovies = async (req: Request, res: Response) => {
         const moviesWithPosters =  await Promise.all(
             movies.map(async (movie: any) => {
                 try {
-                    const searchResults = await tmdbService.searchMovie(movie.title);
+                    const searchResults = await tmdbService.searchMovie(movie.Title);
     
                     if (searchResults && searchResults.length > 0) {
                         const posterPath = searchResults[0].poster_path;
@@ -57,7 +57,7 @@ export const getMovieById = async (req: Request, res: Response) => {
         const movie = rows[0];
 
         try {
-            const searchResults = await tmdbService.searchMovie(movie.title);
+            const searchResults = await tmdbService.searchMovie(movie.Title);
 
             if (searchResults && searchResults.length > 0) {
                 const posterPath = searchResults[0].poster_path;
