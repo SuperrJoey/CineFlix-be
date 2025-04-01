@@ -1,0 +1,6 @@
+passwords and usernames of clients
+username | password
+ram ram
+
+
+SELECT username, password FROM users WHERE username = 'sajal';

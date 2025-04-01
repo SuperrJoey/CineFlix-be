@@ -8,10 +8,16 @@ dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET;
 
 export const signup: RequestHandler = async (req, res) => {
-    const { username, password, role } = req.body;
+    const { username, name, password, role } = req.body;
 
-    if (!username || !password || !role) {
+    if (!username || !password || !role || !name) {
         res.status(400).json({ message: "Error❌! All fields are required" });
+        return;
+    }
+
+    // Validate role
+    if (!["user", "admin"].includes(role)) {
+        res.status(400).json({ message: "Error❌! Invalid role. Must be either 'user' or 'admin'" });
         return;
     }
 
@@ -26,9 +32,16 @@ export const signup: RequestHandler = async (req, res) => {
             return;
         }
 
-        await db.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", [username, hashedPw, role]);
+        // Insert user with validated role
+        await db.execute(
+            "INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", 
+            [username, hashedPw, name, role]
+        );
 
-        res.status(201).json({ message: `User (${role}) registered successfully!✅` });
+        res.status(201).json({ 
+            message: `User (${role}) registered successfully!✅`,
+            role: role // Include role in response for frontend routing
+        });
     } catch (err) {
         console.error("Error registering user:", err);
         res.status(500).json({ message: "Error❌! Failed to register user" });
@@ -56,8 +69,13 @@ export const login: RequestHandler = async (req, res) => {
         }
 
         const user = rows[0];
+        console.log("Type of password:", typeof password);
+console.log("Type of stored hash:", typeof user.Password);
+console.log("Raw user data from DB:", user);
+console.log("Stored hash:", user.Password);
+
          
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(password, user.Password);
 
         if (!isMatch) {
             res.status(401).json({ message: "Invalid username or password"});
@@ -66,7 +84,11 @@ export const login: RequestHandler = async (req, res) => {
 
         const token = jwt.sign({ id: user.id, role: user.role}, SECRET_KEY!, {expiresIn: "1h"});
 
-        res.status(200).json({ token, role: user.role});
+        res.status(200).json({ 
+            token, 
+            role: user.role,
+            name: user.name
+        });
     } catch (err) {
         console.error("Error logging in:", err);
         res.status(500).json({ message: "Error❌! Failed to login"});
