@@ -86,8 +86,8 @@ console.log("Stored hash:", user.Password);
 
         res.status(200).json({ 
             token, 
-            role: user.role,
-            name: user.name
+            role: user.Role,
+            name: user.Name
         });
     } catch (err) {
         console.error("Error logging in:", err);

@@ -1,6 +1,7 @@
 passwords and usernames of clients
 username | password
 ram ram
+dev123 dev123 admin
 
 
 SELECT username, password FROM users WHERE username = 'sajal';

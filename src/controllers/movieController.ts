@@ -14,21 +14,25 @@ export const getMovies = async (req: Request, res: Response) => {
     
                     if (searchResults && searchResults.length > 0) {
                         const posterPath = searchResults[0].poster_path;
+                        const overview = searchResults[0].overview;
                         return {
                             ...movie,
-                            poster_url: tmdbService.getFullPosterUrl(posterPath)
+                            poster_url: tmdbService.getFullPosterUrl(posterPath),
+                            overview
                         };
                     }
     
                     return {
                         ...movie,
-                        poster_url: null
+                        poster_url: null,
+                        overview: null
                     };
                 } catch (error) {
                     console.error(`Error fetching poster for ${movie.title}:`, error);
                     return {
                         ...movie,
-                        poster_url: null
+                        poster_url: null,
+                        overview: null
                     };
                 }
             })
@@ -53,7 +57,7 @@ export const getMovieById = async (req: Request, res: Response) => {
             return;
             }
 
-        const movie = rows[0];
+        const movie = rows[0]; 
 
         try {
             const searchResults = await tmdbService.searchMovie(movie.Title);
@@ -61,12 +65,15 @@ export const getMovieById = async (req: Request, res: Response) => {
             if (searchResults && searchResults.length > 0) {
                 const posterPath = searchResults[0].poster_path;
                 movie.poster_url = tmdbService.getFullPosterUrl(posterPath);
+                movie.overview = searchResults[0].overview;
             } else {
                 movie.poster_url = null;
+                movie.overview = null;
             }
         } catch (error) {
             console.error("Error fetching TMDB data:", error);
             movie.poster_url = null;
+            movie.overview = null;
         }
         
         res.json(movie);

@@ -26,6 +26,7 @@ export const searchMovie = async (title: string) => {
                 page: 1
             }
         })
+        //console.log(response.data);
         return response.data.results;
     } catch (error) {
         console.error('Error searching movie:', error);
