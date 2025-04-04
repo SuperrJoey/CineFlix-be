@@ -90,3 +90,62 @@ export const assignPermission = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+
+export const updatePermission = async (req: AuthRequest, res: Response) => {
+    const { adminId, permissionId } = req.params;
+    const { AccessLevel } = req.body;
+
+    if(!AccessLevel) {
+        return res.status(400).json({ message: "Access Level is required" });
+    }
+
+    try {
+        const db = await dbPromise;
+
+        const [permRows]: any = await db.execute(
+            "SELECT * FROM permissions WHERE AdminID = ? AND PermissionID = ?",
+            [adminId, permissionId]
+        );
+
+        if (permRows.length === 0) {
+            return res.status(404).json({ message: "Permission not found" });
+        }
+
+        await db.execute(
+            "UPDATE permissions SET AccessLevel = ? WHERE AdminID = ? AND PermissionID = ?",
+            [AccessLevel, adminId, permissionId]
+        );
+
+        res.status(200).json({ message: "Permission updated successfully" });
+    } catch (error) {
+        console.error("Error updating permission:", error);
+        res.status(500).json({message: "Server error" });
+    }
+};
+
+export  const deletePermission = async (req: AuthRequest, res: Response) => {
+    const {adminId, permissionId} = req.params;
+
+    try {
+        const db = await dbPromise;
+
+        const [permRows]: any = await db.execute(
+            "SELECT * FROM permissions WHERE AdminID = ? AND PermissionID = ?",
+            [adminId, permissionId]
+        );
+
+        if (permRows.length === 0) {
+            return res.status(404).json({message: "Permission not found" });
+        }
+
+        await db.execute(
+            "DELETE FROM permissions WHERE AdminID = ? AND PermissionID = ?",
+            [adminId, permissionId]
+        );
+
+        res.status(200).json({message: "Permission deleted successfully"  });
+    } catch (error) {
+        console.error("Error deleting permission:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+}
