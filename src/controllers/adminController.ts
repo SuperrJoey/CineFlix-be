@@ -31,7 +31,8 @@ export const getAdminById = async (req: AuthRequest, res: Response) => {
             WHERE a.AdminID = ?`, [id]);
         
         if (adminRows.length === 0) {
-            return res.status(404).json({ message: "Admin not found" });
+             res.status(404).json({ message: "Admin not found" });
+             return;
         }
 
         const [permRows]: any = await db.execute(`
@@ -58,7 +59,8 @@ export const assignPermission = async (req: AuthRequest, res: Response) => {
     const [ role, AccessLevel ] = req.body;
 
     if (!role || !AccessLevel) {
-        return res.status(400).json({ message: "Role and access level are required" });
+         res.status(400).json({ message: "Role and access level are required" });
+         return;
     }
     
     try {
@@ -67,7 +69,8 @@ export const assignPermission = async (req: AuthRequest, res: Response) => {
         const [adminRows]: any = await db.execute("SELECT * FROM admins WHERE AdminID = ?", [adminId]);
 
         if (adminRows.length === 0) {
-            return res.status(404).json({ message: "Admin not found" });
+             res.status(404).json({ message: "Admin not found" });
+             return;
         }
 
         const [maxIdRows]: any = await db.execute(
@@ -96,7 +99,8 @@ export const updatePermission = async (req: AuthRequest, res: Response) => {
     const { AccessLevel } = req.body;
 
     if(!AccessLevel) {
-        return res.status(400).json({ message: "Access Level is required" });
+         res.status(400).json({ message: "Access Level is required" });
+         return;
     }
 
     try {
@@ -108,7 +112,8 @@ export const updatePermission = async (req: AuthRequest, res: Response) => {
         );
 
         if (permRows.length === 0) {
-            return res.status(404).json({ message: "Permission not found" });
+             res.status(404).json({ message: "Permission not found" });
+             return;
         }
 
         await db.execute(
@@ -135,7 +140,8 @@ export  const deletePermission = async (req: AuthRequest, res: Response) => {
         );
 
         if (permRows.length === 0) {
-            return res.status(404).json({message: "Permission not found" });
+             res.status(404).json({message: "Permission not found" });
+             return;
         }
 
         await db.execute(

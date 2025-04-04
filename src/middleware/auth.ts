@@ -9,6 +9,10 @@ export interface AuthRequest extends Request {
   user?: {
     id: number;
     role: string;
+    permissions?: Array<{
+      Role: string;
+      AccessLevel: string;
+    }>;
   }
 }
 
@@ -16,13 +20,15 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   
-  if (!token) return res.status(401).json({ message: "Unauthorized access" });
+  if (!token)  {res.status(401).json({ message: "Unauthorized access" });
+                return;}
   
   try {
     const decoded = jwt.verify(token, SECRET_KEY as string) as { id: number, role: string };
     req.user = decoded;
     next();
   } catch (err) {
-    return res.status(403).json({ message: "Invalid or expired token" });
+     res.status(403).json({ message: "Invalid or expired token" });
+     return;
   }
 };
