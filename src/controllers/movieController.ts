@@ -82,3 +82,59 @@ export const getMovieById = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Server error" });
     }
 }
+
+export const addMovie = async (req: Request, res: Response) => {
+    const { title, genre, rating , duration } = req.body;
+
+    if (!title || !genre || !rating || !duration ) {
+        res.status(400).json({ message: "All fields are required! "});
+        return;
+    }
+
+    try {
+        const db = await dbPromise;
+
+        const [existingMovies]:any = await db.execute(
+            "SELECT * FROM movies WHERE Title = ? AND duration = ?", 
+            [title, duration]
+        );
+
+        if (existingMovies.length > 0) {
+            res.status(409).json({ message: "This movie already exists in the database" });
+            return;
+        }
+
+        await db.execute(
+            "INSERT INTO movies (Title, Genre, Rating, Duration) VALUES (?, ?, ?, ?)", 
+        [title, genre, rating, duration]);
+
+        let posterUrl = null;
+        let overview = null;
+
+        try {
+            const searchResults = await tmdbService.searchMovie(title);
+
+            if (searchResults && searchResults.length > 0) {
+                const posterPath = searchResults[0].poster_path;
+                posterUrl = tmdbService.getFullPosterUrl(posterPath);
+                overview = searchResults[0].overview;
+            }
+        } catch (error) {
+            console.error("Error fetching TMDB data:", error);
+        }
+
+        res.status(201).json({
+            message: "Movie added successfully",
+            movie: {
+                Title: title,
+                Genre: genre,
+                Duration: duration,
+                poster_url: posterUrl,
+                overview,
+            }
+        });
+    } catch (error) {
+        console.error("Error adding movie: ", error);
+        res.status(500).json({message: "Server error" });
+    }
+}

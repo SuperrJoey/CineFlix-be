@@ -10,6 +10,8 @@ const SECRET_KEY = process.env.JWT_SECRET;
 export const signup: RequestHandler = async (req, res) => {
     const { username, name, password, role, adminRole } = req.body;
 
+    console.log("username : ", username, " name: ", name, " password:", password, " role:", role, " adminRole", adminRole);
+
     if (!username || !password || !role || !name) {
         res.status(400).json({ message: "Error❌! All fields are required" });
         return;
@@ -60,9 +62,9 @@ export const signup: RequestHandler = async (req, res) => {
                 );
 
                 const adminID = adminResult[0].AdminID;
-
+    
                 await db.execute(
-                    "INSERT INTO permissions (PermissionID, AdminID, Role, AccessLevel) VALUES (?, ?, ?)",
+                    "INSERT INTO permissions (PermissionID, AdminID, Role, AccessLevel) VALUES (?, ?, ?, ?)",
                     [1, adminID, "movies", "read, write, delete"]
                 )
             }
@@ -128,9 +130,11 @@ export const login: RequestHandler = async (req, res) => {
             permissions = permRows;
         }
 
+        console.log("User object before token creation: ", user);
+
         const token = jwt.sign({ 
             id: user.id, 
-            role: user.role,
+            role: user.Role,
             adminId: user.AdminID,
             adminRole: user.AdminRole,
             permissions
