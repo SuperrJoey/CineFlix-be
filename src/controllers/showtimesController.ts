@@ -1,7 +1,6 @@
 import {  Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import dbPromise from "../config/db";
-import { start } from "repl";
 
 export const getShowtimes = async (req: Request, res: Response) => {
     try {
