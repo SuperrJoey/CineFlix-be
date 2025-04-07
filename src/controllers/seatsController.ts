@@ -142,6 +142,11 @@ export const cancelBooking = async (req: AuthRequest, res: Response) => {
                 [bookingId]
             );
 
+            await db.execute(
+                "UPDATE Seats SET AvailabilityStatus = 'available', BookingID = NULL WHERE BookingID = ?",
+                [bookingId]
+            )
+
             await db.commit();
 
             res.status(200).json({ message: "Booking cancelled successfully" });
