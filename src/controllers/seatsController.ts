@@ -156,4 +156,46 @@ export const cancelBooking = async (req: AuthRequest, res: Response) => {
         console.error("Error cancelling booking:", error);
         res.status(500).json({ message: "Server error"});
     }
-}
+};
+
+export const getUserBookings = async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+        res.status(401).json({ message: "User must be logged in to view bookings" });
+        return;
+    }
+
+    try {
+        const db = await dbPromise;
+
+        const [bookingRows]: any = await db.execute(`
+            SELECT b.BookingID, b.ShowtimeID, b.BookingDate, b.AvailabilityStatus,
+                   s.StartTime, s.EndTime, s.ScreenID,
+                   m.MovieID, m.Title, m.Genre, m.Duration
+            FROM Bookings b
+            JOIN Showtimes s ON b.ShowtimeID = s.ShowtimeID
+            JOIN Movies m ON s.MovieID = m.MovieID
+            WHERE b.UserID = ?
+            ORDER BY b.BookingDate DESC, s.StartTime ASC
+        `, [userId]);  
+
+        const bookingWithSeats = await Promise.all(bookingRows.map(async (booking: any) => {
+            const [seatRows]: any = await db.execute(
+                "SELECT SeatID, SeatNumber, ScreenID FROM Seats WHERE BookingID = ?",
+                [booking.BookingID]
+            );
+
+            return {
+                ...booking,
+                seats: seatRows
+            };
+        }));
+
+        res.status(200).json(bookingWithSeats);
+
+    } catch (error) {
+        console.error("Error fetching user bookings: ", error);
+        res.status(500).json({ message: "Server Error" });
+    }
+};
