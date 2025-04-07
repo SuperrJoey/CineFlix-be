@@ -76,8 +76,15 @@ export const getShowtimesByMovie = async (req: Request, res: Response) => {
 export const addShowtime  = async (req: AuthRequest, res: Response) => {
     const { movieId, screenId, startTime, endTime, totalSeats } = req.body;
 
-    if (!movieId || screenId || !startTime || !endTime || !totalSeats) {
-        res.status(400).json({ message: "All fields required"});
+    console.log("movie id: ", movieId);
+    console.log("screen id: ", screenId);
+    console.log("startime: ", startTime);
+    console.log("endtime: ", endTime);
+    console.log("total seats: ", totalSeats);
+
+
+    if (!movieId || !screenId || !startTime || !endTime || !totalSeats) {
+        res.status(400).json({ message: "All fields required here"});
         return;
     }
 
@@ -115,14 +122,14 @@ export const addShowtime  = async (req: AuthRequest, res: Response) => {
 
         try {
             await db.execute(
-                "INSERT INTO Showtimes (ShowtimeID, MovieID, screenID, StartTime, EndTime) VALUES (? , ?, ?, ?)",
+                "INSERT INTO Showtimes (ShowtimeID, MovieID, screenID, StartTime, EndTime) VALUES (?, ?, ?, ?, ?)",
                 [nextShowtimeID, movieId, screenId, startTime, endTime]
             );
         
-        for (let i = 0; i <= totalSeats; i++) {
+        for (let i = 1; i <= totalSeats; i++) {
             await db.execute(
-                "INSERT INTO Seats (SeatID, ShowtimeID, screenID, SeatNumber, AvailabilityStatus)"
-                , [null, nextShowtimeID, screenId, i, "available"]
+                "INSERT INTO Seats (ShowtimeID, screenID, SeatNumber, AvailabilityStatus) VALUES (?, ?, ?, ?)"
+                , [nextShowtimeID, screenId, i, "available"]
             );
         }
 

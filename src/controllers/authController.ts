@@ -133,7 +133,7 @@ export const login: RequestHandler = async (req, res) => {
         console.log("User object before token creation: ", user);
 
         const token = jwt.sign({ 
-            id: user.id, 
+            id: user.UserID, 
             role: user.Role,
             adminId: user.AdminID,
             adminRole: user.AdminRole,

@@ -51,7 +51,7 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
         const db = await dbPromise;
 
         const [showtimeRows]: any = await db.execute(
-            "SELCT * FROM Showtimes WHERE ShowtimeID = ? ",
+            "SELECT * FROM Showtimes WHERE ShowtimeID = ? ",
             [showtimeId]
         );
 
@@ -62,7 +62,7 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
 
         for (const SeatId of seatIds) {
             const [seatRows]: any = await db.execute(
-                "SELCT * FROM Seats WHERE SeatID = ? AND ShowtimeID = ?",
+                "SELECT * FROM Seats WHERE SeatID = ? AND ShowtimeID = ?",
                 [SeatId, showtimeId]
             );
 
@@ -76,25 +76,22 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
                 return;
             }
         }
-        const [maxBookingIdRows]: any = await db.execute(
-            "SELECT MAX(BookingID) as maxId FROM Bookings"
-        );
-        const nextBookingId = (maxBookingIdRows[0].maxId || 0) + 1;
 
         await db.beginTransaction();
 
         try {
             const bookingDate = new Date().toISOString().split('T')[0];
 
-            await db.execute(
-                "INSERT INTO Bookings (BookingID, UserID, ShowtimeID, BookingDate, AvailabilityStatus) VALUES (?, ?, ?, ?)",
-                [nextBookingId, userId, showtimeId, bookingDate, 'confirmed']
+            const [bookingResult]: any = await db.execute(
+                "INSERT INTO Bookings (UserID, ShowtimeID, BookingDate, AvailabilityStatus) VALUES (?, ?, ?, ?)",
+                [userId, showtimeId, bookingDate, 'confirmed']
             );
 
+            const bookingId = bookingResult.insertId;
             for (const seatId of seatIds) {
                 await db.execute(
                     "UPDATE Seats SET AvailabilityStatus = 'booked', BookingID = ? WHERE SeatID = ?",
-                    [nextBookingId, seatId]
+                    [bookingId, seatId]
                 );
             }
 
@@ -102,7 +99,7 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
 
             res.status(201).json({
                 message: "Seats booked successfully",
-                bookingId: nextBookingId,
+                bookingId: bookingId,
                 seatIds: seatIds
             });
         } catch (error) {
@@ -141,7 +138,7 @@ export const cancelBooking = async (req: AuthRequest, res: Response) => {
 
         try {
             await db.execute(
-                "UPDATE Bookings SET AvailabilityStatus = 'cancelled' WHERE BookingID  ?",
+                "UPDATE Bookings SET AvailabilityStatus = 'cancelled' WHERE BookingID = ?",
                 [bookingId]
             );
 
