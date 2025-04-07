@@ -143,3 +143,110 @@ export const addShowtime  = async (req: AuthRequest, res: Response) => {
             res.status(500).json({ message: "Server Error" });
     }
 }
+
+export const updateShowtime = async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { screenId, startTime, endTime } = req.body;
+
+    if (!screenId || !startTime || !endTime ) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    try {
+        const db = await dbPromise
+
+        const [showtimeRows]: any = await db.execute(
+            "SELECT * FROM Showtimes WHERE ShowtimeID = ?",
+            [id]
+        );
+
+        if (showtimeRows.length === 0) {
+            res.status(404).json({ message: "Showtime not found!" });
+            return;
+        }
+
+        const [conflictRows]: any = await db.execute(`
+            SELECT * FROM Showtimes 
+            WHERE ScreenID = ? AND ShowtimeID != ? AND
+                  ((StartTime BETWEEN ? AND ?) OR 
+                   (EndTime BETWEEN ? AND ?) OR
+                   (StartTime <= ? AND EndTime >= ?))
+        `, [screenId, id, startTime, endTime, startTime, endTime, startTime, endTime]);
+    
+        if (conflictRows.length > 0) {
+            res.status(409).json({ message: "This timeslot conflicts with an existing showtime on this screen"})
+            return;
+        }   
+
+        await db.beginTransaction();
+
+        try {
+            await db.execute(
+                "UPDATE Showtimes SET screenid = ?, startTime = ?, EndTime = ? WHERE ShowtimeID = ?",
+                [screenId, startTime, endTime, id]
+            );
+
+            await db.execute(
+                "UPDATE Seats SET ScreenID = ? WHERE ShowtimeID = ?",
+                [screenId, id]
+            );
+
+            await db.commit();
+
+            res.status(200).json({ message: "Showtime updated successfully" });
+        } catch (error) {
+            await db.rollback();
+            throw error;
+        }
+    } catch (error) {
+        console.error("Error updating showtime: ", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+export const deleteShowtime = async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+
+    try {
+        const db = await dbPromise;
+
+        const [showtimeRows]: any = await db.execute(
+            "SELECT * FROM Showtimes WHERE ShowtimeID = ?",
+            [id]
+        );
+
+        if (showtimeRows.length === 0) {
+            res.status(404).json({ message: "Showtime not found" });
+            return;
+        }
+
+        const [bookingRows]: any = await db.execute(
+            "SELECT * FROM Bookings WHERE ShowtimeID = ?",
+            [id]
+        );
+
+        if (bookingRows.length > 0){
+            res.status(409).json({ message: "cannot delete showtime with existing bookings" });
+            return;
+        }
+
+        await db.beginTransaction();
+
+        try {
+            await db.execute("DELETE FROM Seats WHERE ShowtimeID = ?", [id]);
+
+            await db.execute("DELETE FROM Showtimes WHERE ShowtimeID = ?", [id]);
+
+            await db.commit();
+
+            res.status(200).json({ message: "Showtime deleted successfully" });
+        } catch (error) {
+            await db.rollback();
+            throw error;
+        }
+    } catch (error) {
+        console.error("Error deleting showtime:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+}
