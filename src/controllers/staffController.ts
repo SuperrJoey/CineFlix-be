@@ -207,49 +207,102 @@ export const assignWorkArea = async (req: AuthRequest, res: Response) => {
 // USE REPORTS TABLE FOR THIS
 // CREATE ONE
 
-// export const createWorkSchedule = async (req: AuthRequest, res: Response) => {
-//     const { title, date, startTime, endTime, staffIds, notes } = req.body;
-//     const adminId = req.user?.adminId;
+export const createWorkSchedule = async (req: AuthRequest, res: Response) => {
+    const { title, date, startTime, endTime, staffIds, notes } = req.body;
+    const adminId = req.user?.adminId;
 
-//     if (!title || !date || !startTime || !endTime || !staffIds || !Array.isArray(staffIds)) {
-//         res.status(400).json({ message: "Missing required fields" });
-//         return;
-//     }
+    if (!title || !date || !startTime || !endTime || !staffIds || !Array.isArray(staffIds)) {
+        res.status(400).json({ message: "Missing required fields" });
+        return;
+    }
 
-//     if (!adminId) {
-//         res.status(403).json({ message: "Admin privileges required" });
-//         return;
-//     }
+    if (!adminId) {
+        res.status(403).json({ message: "Admin privileges required" });
+        return;
+    }
 
-//     try {
-//         const db = await dbPromise;
+    try {
+        const db = await dbPromise;
 
-//         const scheduleData = JSON.stringify({
-//             title,
-//             date,
-//             startTime,
-//             endTime,
-//             staffIds,
-//             notes
-//         });
+        const scheduleData = JSON.stringify({
+            title,
+            date,
+            startTime,
+            endTime,
+            staffIds,
+            notes
+        });
 
-//         const schedulePromises = staffIds.map(async (staffId) => {
-//             const [staffRows]: any = await db.execute(
-//                 "SELECT * FROM Users WHERE UserID = ? AND Role = 'manager'",
-//                 [staffId]
-//             );
+        const schedulePromises = staffIds.map(async (staffId) => {
+            const [staffRows]: any = await db.execute(
+                "SELECT * FROM Users WHERE UserID = ? AND Role = 'manager'",
+                [staffId]
+            );
 
-//             if (staffRows.length === 0) {
-//                 throw new Error(`Staff member with ID ${staffId} not found`);
-//             };
+            if (staffRows.length === 0) {
+                throw new Error(`Staff member with ID ${staffId} not found`);
+            };
 
-//             const [maxRe
+            const [result]: any = await db.execute(
+                "INSERT INTO Reports (AdminID, UserID, ReportType, ReportData, GeneratedDate) VALUES (? ,? ,'work_schedule' , ?, NOW())",
+                [adminId, staffId, scheduleData]
+            );
 
-//             ]
-//         })
+            return {
+            reportId: result.insertId,
+            staffId,
+            success: true
+            };
+        });
+
+        const results = await Promise.all(schedulePromises);
+
+        res.status(201).json({
+            message: "Work schedule created successfully",
+            schedules: results
+        });
+    } catch (error) {
+        console.error("Error creating work schedule: ", error);
+        res.status(500).json({ message: "Server error" })
+    }
+};
 
 
-//     } catch (error) {
+export const getStaffSchedules = async (req: AuthRequest, res: Response) => {
+    const { staffId } =  req.params;
 
-//     }
-// }
+    try {
+        const db = await dbPromise;
+
+        const [scheduleRows]: any = await db.execute(`
+            SELECT r.ReportID, r.AdminID, r.ReportData, r.GeneratedDate,
+                   a.AdminRole, u.Name as AdminName
+            FROM Reports r
+            JOIN Admins a ON r.AdminID = a.AdminID
+            JOIN Users u ON a.UserID = u.UserID
+            WHERE r.UserID = ? AND r.ReportType = 'work_schedule'
+            ORDER BY r.GeneratedDate DESC
+        `, [staffId]);
+
+        const schedules = scheduleRows((row: any) => {
+            const scheduleData = JSON.parse(row.ReportData);
+            return {
+                reportId: row.ReportID,
+                adminId: row.AdminID,
+                adminName: row.AdminName,
+                adminRole: row.AdminRole,
+                generatedDate: row.GeneratedDate,
+                title: scheduleData.title,
+                date: scheduleData.date,
+                startTime: scheduleData.startTime,
+                endTime: scheduleData.endTime,
+                notes: scheduleData.notes
+            };
+        })
+
+        res.status(200).json(schedules);
+    } catch (error) {
+        console.error("Error fetching staff schedules: ", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
