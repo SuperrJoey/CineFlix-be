@@ -19,6 +19,7 @@ export const hasPermission = (requiredRole: string, requiredAction: string) => {
         console.log("In hasPermission middleware");
         console.log("Required role:", requiredRole);
         console.log("Required action:", requiredAction);
+        console.log("user name: ", req.user?.id);
         console.log("User permissions:", req.user?.permissions);
         const permissions = req.user?.permissions || [];
         const hasAccess = permissions.some(p => {

@@ -127,6 +127,9 @@ export const login: RequestHandler = async (req, res) => {
                 "SELECT Role, AccessLevel FROM permissions WHERE AdminID = ?",
                 [user.AdminID]
             );
+            console.log("✅ Permissions fetched for AdminID", user.AdminID, ":", permRows);
+
+
             permissions = permRows;
         }
 

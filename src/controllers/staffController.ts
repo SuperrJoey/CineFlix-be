@@ -11,13 +11,14 @@ export const getAllStaff = async (req: AuthRequest, res: Response) => {
     try {
         const db = await dbPromise;
         const [staffRows]: any = await db.execute(`
-            SELECT u.UserID, u.Username, u.Name, u.Role,
-            u.adminID, u.AdminRole, a.LastLogin
-        FROM Users u 
-        LEFT JOIN Admins a ON u.UserID 
-        WHERE u.Role = 'manager'
-        ORDER BY u.Name
+            SELECT u.UserID, u.Username, u.Name, u.Role
+      FROM Users u
+      LEFT JOIN Admins a ON u.UserID = a.UserID
+      WHERE a.AdminRole = 'staff'
+      ORDER BY u.Name
         `);
+        
+        res.status(200).json(staffRows);
     } catch (error) {
         console.error("Error fetching staff:", error);
         res.status(500).json({ message: "Server error" });
@@ -35,13 +36,15 @@ export const getStaffById = async (req: AuthRequest, res: Response) => {
                    a.AdminID, a.AdminRole, a.LastLogin
             FROM Users u
             LEFT JOIN Admins a ON u.UserID = a.UserID
-            WHERE u.UserID = ? AND u.Role = 'manager'
+            WHERE u.UserID = ? AND a.AdminRole = 'staff'
         `, [id]);
 
         if(staffRows.length === 0) {
             res.status(404).json({ message: "Staff member not found" });
             return;
         }
+
+        res.status(200).json(staffRows);
     } catch (error) {
         console.error("Error fetching staff details: ", error);
         res.status(500).json({ message: "Server error" });
@@ -182,12 +185,17 @@ export const assignWorkArea = async (req: AuthRequest, res: Response) => {
             return;
         }
 
-        const adminId = adminRows[0].adminID;
+        const adminId = adminRows[0].AdminID;
 
         const [existingPermissions]: any = await db.execute(
             "SELECT * FROM Permissions WHERE AdminID = ? AND Role = ?",
             [adminId, role]
         );
+
+        if (existingPermissions.length > 0) {
+            res.status(409).json({ message: "Permission already exists for this role" });
+            return;
+        }
 
         const [result]: any = await db.execute(
             "INSERT INTO Permissions(AdminID, Role, AccessLevel) VALUES (?, ?, ?)",
@@ -233,11 +241,17 @@ export const createWorkSchedule = async (req: AuthRequest, res: Response) => {
             notes
         });
 
+        const schedulableRoles = ['admin', 'manager', 'junior_manager']
+
         const schedulePromises = staffIds.map(async (staffId) => {
+            console.log(`🔍 Checking staff ID: ${staffId}`);
             const [staffRows]: any = await db.execute(
-                "SELECT * FROM Users WHERE UserID = ? AND Role = 'manager'",
-                [staffId]
-            );
+                `SELECT u.* FROM Users u 
+                 JOIN Admins a ON u.UserID = a.UserID 
+                 WHERE u.UserID = ?`,
+                 [staffId]
+              );
+              console.log(`🧾 Query result for staff ID ${staffId}:`, staffRows);
 
             if (staffRows.length === 0) {
                 throw new Error(`Staff member with ID ${staffId} not found`);
@@ -284,7 +298,7 @@ export const getStaffSchedules = async (req: AuthRequest, res: Response) => {
             ORDER BY r.GeneratedDate DESC
         `, [staffId]);
 
-        const schedules = scheduleRows((row: any) => {
+        const schedules = scheduleRows.map((row: any) => {
             const scheduleData = JSON.parse(row.ReportData);
             return {
                 reportId: row.ReportID,
