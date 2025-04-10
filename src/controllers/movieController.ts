@@ -7,38 +7,39 @@ export const getMovies = async (req: Request, res: Response) => {
         const db = await dbPromise;
         const [movies]: any = await db.execute("SELECT * FROM movies");
         
-        const moviesWithPosters =  await Promise.all(
-            movies.map(async (movie: any) => {
-                try {
-                    const searchResults = await tmdbService.searchMovie(movie.Title);
+        // const moviesWithPosters =  await Promise.all(
+        //     movies.map(async (movie: any) => {
+        //         try {
+        //             const searchResults = await tmdbService.searchMovie(movie.Title);
     
-                    if (searchResults && searchResults.length > 0) {
-                        const posterPath = searchResults[0].poster_path;
-                        const overview = searchResults[0].overview;
-                        return {
-                            ...movie,
-                            poster_url: tmdbService.getFullPosterUrl(posterPath),
-                            overview
-                        };
-                    }
+        //             if (searchResults && searchResults.length > 0) {
+        //                 const posterPath = searchResults[0].poster_path;
+        //                 const overview = searchResults[0].overview;
+        //                 return {
+        //                     ...movie,
+        //                     poster_url: tmdbService.getFullPosterUrl(posterPath),
+        //                     overview
+        //                 };
+        //             }
     
-                    return {
-                        ...movie,
-                        poster_url: null,
-                        overview: null
-                    };
-                } catch (error) {
-                    console.error(`Error fetching poster for ${movie.title}:`, error);
-                    return {
-                        ...movie,
-                        poster_url: null,
-                        overview: null
-                    };
-                }
-            })
-        );
+        //             return {
+        //                 ...movie,
+        //                 poster_url: null,
+        //                 overview: null
+        //             };
+        //         } catch (error) {
+        //             console.error(`Error fetching poster for ${movie.title}:`, error);
+        //             return {
+        //                 ...movie,
+        //                 poster_url: null,
+        //                 overview: null
+        //             };
+        //         }
+        //     })
+        // );
 
-        res.json(moviesWithPosters);
+        // res.json(moviesWithPosters);
+        res.json(movies);
     } catch (error) {
         console.error("Database error: ", error);
         res.status(500).json({message: "Server error"});
@@ -59,22 +60,22 @@ export const getMovieById = async (req: Request, res: Response) => {
 
         const movie = rows[0]; 
 
-        try {
-            const searchResults = await tmdbService.searchMovie(movie.Title);
+        // try {
+        //     const searchResults = await tmdbService.searchMovie(movie.Title);
 
-            if (searchResults && searchResults.length > 0) {
-                const posterPath = searchResults[0].poster_path;
-                movie.poster_url = tmdbService.getFullPosterUrl(posterPath);
-                movie.overview = searchResults[0].overview;
-            } else {
-                movie.poster_url = null;
-                movie.overview = null;
-            }
-        } catch (error) {
-            console.error("Error fetching TMDB data:", error);
-            movie.poster_url = null;
-            movie.overview = null;
-        }
+        //     if (searchResults && searchResults.length > 0) {
+        //         const posterPath = searchResults[0].poster_path;
+        //         movie.poster_url = tmdbService.getFullPosterUrl(posterPath);
+        //         movie.overview = searchResults[0].overview;
+        //     } else {
+        //         movie.poster_url = null;
+        //         movie.overview = null;
+        //     }
+        // } catch (error) {
+        //     console.error("Error fetching TMDB data:", error);
+        //     movie.poster_url = null;
+        //     movie.overview = null;
+        // }
         
         res.json(movie);
     } catch (error) {
@@ -104,10 +105,6 @@ export const addMovie = async (req: Request, res: Response) => {
             return;
         }
 
-        await db.execute(
-            "INSERT INTO movies (Title, Genre, Rating, Duration) VALUES (?, ?, ?, ?)", 
-        [title, genre, rating, duration]);
-
         let posterUrl = null;
         let overview = null;
 
@@ -123,6 +120,10 @@ export const addMovie = async (req: Request, res: Response) => {
             console.error("Error fetching TMDB data:", error);
         }
 
+        await db.execute(
+            "INSERT INTO movies (Title, Genre, Rating, Duration, poster_url, overview) VALUES (?, ?, ?, ?, ?, ?)", 
+        [title, genre, rating, duration, posterUrl, overview]);
+
         res.status(201).json({
             message: "Movie added successfully",
             movie: {
@@ -136,5 +137,40 @@ export const addMovie = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Error adding movie: ", error);
         res.status(500).json({message: "Server error" });
+    }
+}
+
+export const updateMoviesMetadata = async (req: Request, res: Response) => {
+    try {
+        const db = await dbPromise;
+        const [movies]: any = await db.execute("SELECT * FROM movies WHERE poster_url IS NULL OR overview is NULL");
+
+        let updatedCount = 0;
+
+        for (const movie of movies) {
+            try {
+                const searchResults = await tmdbService.searchMovie(movie.Title);
+
+                if (searchResults && searchResults.length > 0) {
+                    const posterPath = searchResults[0].poster_path;
+                    const posterUrl = tmdbService.getFullPosterUrl(posterPath);
+                    const overview = searchResults[0].overview;
+
+                    await db.execute(
+                        "UPDATE movies SET poster_url = ?, overview = ? WHERE MovieID = ?",
+                        [posterUrl, overview, movie.MovieID]
+                    );
+
+                    updatedCount++;
+                }
+            } catch (error) {
+                console.error(`Error updating metadata for movie ${movie.Title}: `, error);
+            }
+        }
+
+        res.json({ message: `Updated metadata for ${updatedCount} movies `});
+    } catch (error) {
+        console.error("Error updating movie metadata:", error);
+        res.status(500).json({ message: "Server error" });
     }
 }

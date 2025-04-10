@@ -53,25 +53,74 @@ export const getShowtimeById = async (req: Request, res: Response) => {
 
 export const getShowtimesByMovie = async (req: Request, res: Response) => {
     const { movieId } = req.params;
-
+  
     try {
-        const db = await dbPromise;
-
-        const [showtimeRows]: any = await db.execute(`
-            SELECT s.ShowtimeID, s.MovieID, s.screenID, s.StartTime, s.EndTime,
-            m.Title, m.Genre, m.Duration
-            FROM Showtimes s
-            JOIN Movies m ON s.MovieID = m.MovieID
-            WHERE m.MovieID = ?
-            ORDER BY s.StartTime ASC
-            `, [movieId]);
-
-            res.status(200).json(showtimeRows);
+      const db = await dbPromise;
+  
+      const [rows]: any = await db.execute(`
+        SELECT 
+          s.ShowtimeID, s.MovieID, s.screenID, s.StartTime, s.EndTime,
+          m.Title, m.Genre, m.Duration,
+          se.SeatID, se.SeatNumber, se.AvailabilityStatus, se.screenID AS seatScreenID
+        FROM Showtimes s
+        JOIN Movies m ON s.MovieID = m.MovieID
+        LEFT JOIN Seats se ON s.ShowtimeID = se.ShowtimeID
+        WHERE m.MovieID = ?
+        ORDER BY s.StartTime ASC, se.SeatNumber ASC
+      `, [movieId]);
+  
+      // Group seats under their respective showtimes
+      const showtimeMap = new Map();
+  
+      for (const row of rows) {
+        const {
+          ShowtimeID,
+          MovieID,
+          screenID,
+          StartTime,
+          EndTime,
+          Title,
+          Genre,
+          Duration,
+          SeatID,
+          SeatNumber,
+          AvailabilityStatus,
+          seatScreenID
+        } = row;
+  
+        if (!showtimeMap.has(ShowtimeID)) {
+          showtimeMap.set(ShowtimeID, {
+            ShowtimeID,
+            MovieID,
+            screenID,
+            StartTime,
+            EndTime,
+            Title,
+            Genre,
+            Duration,
+            seats: []
+          });
+        }
+  
+        if (SeatID) {
+          showtimeMap.get(ShowtimeID).seats.push({
+            SeatID,
+            SeatNumber,
+            screenID: seatScreenID,
+            AvailabilityStatus
+          });
+        }
+      }
+  
+      const showtimesWithSeats = Array.from(showtimeMap.values());
+  
+      res.status(200).json(showtimesWithSeats);
     } catch (error) {
-        console.error("Error fetching movie showtimes:", error);
-        res.status(500).json({ message: "Server error" });
+      console.error("Error fetching movie showtimes:", error);
+      res.status(500).json({ message: "Server error" });
     }
-};
+  };
+  
 
 export const addShowtime  = async (req: AuthRequest, res: Response) => {
     const { movieId, screenId, startTime, endTime, totalSeats } = req.body;

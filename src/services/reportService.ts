@@ -106,21 +106,14 @@ export const getReports = async (
         }
         
         query += " ORDER BY r.GeneratedDate DESC";
-        
-        if (filters.limit) {
-            query += " LIMIT ?";
-            params.push(filters.limit);
-            
-            if (filters.offset) {
-                query += " OFFSET ?";
-                params.push(filters.offset);
-            }
-        }
 
         const [rows]: any = await db.execute(query, params);
 
         return rows.map((row: any) => {
-            const reportData = JSON.parse(row.reportData);
+            if (!row.ReportData) {
+                console.warn("Invalid ReportData found for reportId:", row.ReportID);
+              }
+            const reportData = row.ReportData ? JSON.parse(row.ReportData) : {};
             return {
             reportId: row.ReportID,
             adminId: row.AdminID,
