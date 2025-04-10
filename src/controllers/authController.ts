@@ -3,6 +3,7 @@ import dbPromise from "../config/db";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import * as reportService from "../services/reportService"
 
 dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET;
@@ -64,9 +65,32 @@ export const signup: RequestHandler = async (req, res) => {
                 const adminID = adminResult[0].AdminID;
     
                 await db.execute(
-                    "INSERT INTO permissions (PermissionID, AdminID, Role, AccessLevel) VALUES (?, ?, ?, ?)",
-                    [1, adminID, "movies", "read, write, delete"]
-                )
+                    "INSERT INTO permissions (AdminID, Role, AccessLevel) VALUES ( ?, ?, ?)",
+                    [adminID, "movies", "read, write, delete"]
+                );
+
+                await reportService.createReport(
+                    null,
+                    userId,
+                    reportService.ReportType.AUDIT,
+                    {
+                        action: "admin_created",
+                        adminRole,
+                        ip: req.ip,
+                        details: { username, name, role }
+                    }
+                );
+            } else {
+                await reportService.createReport(
+                    null,
+                    userId,
+                    reportService.ReportType.AUDIT,
+                    {
+                        action: "user_created",
+                        ip: req.ip,
+                        details: { username, name, role }
+                    }
+                );
             }
             
             res.status(201).json({ 
@@ -101,6 +125,18 @@ export const login: RequestHandler = async (req, res) => {
         const [ rows ]: any = await db.execute("SELECT u.*, a.AdminID, a.AdminRole FROM users u LEFT JOIN admins a ON u.UserID = a.UserID WHERE u.username = ?", [username]);
 
         if (rows.length === 0) {
+            await reportService.createReport(
+                null,
+                null,
+                reportService.ReportType.USER_LOGIN,
+                {
+                    action: "login_failed",
+                    reason: "invalid_username",
+                    username,
+                    ip: req.ip
+                }
+            )
+            
             res.status(401).json({ message: "Invalid username or password"});
             return;
         }
@@ -110,6 +146,18 @@ export const login: RequestHandler = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.Password);
 
         if (!isMatch) {
+            await reportService.createReport(
+                null,
+                user.UserID,
+                reportService.ReportType.USER_LOGIN,
+                {
+                    action: "login_failed",
+                    reason: "invalid_password",
+                    username,
+                    ip: req.ip
+                }
+            )
+
             res.status(401).json({ message: "Invalid username or password"});
             return;
         }
@@ -142,6 +190,19 @@ export const login: RequestHandler = async (req, res) => {
             adminRole: user.AdminRole,
             permissions
         }, SECRET_KEY!, {expiresIn: "1h"});
+
+        await reportService.createReport(
+            user.AdminID || null,
+            user.UserID,
+            reportService.ReportType.USER_LOGIN,
+            {
+                action: "login_success",
+                username,
+                role: user.Role,
+                isAdmin: !!user.AdminID,
+                ip: req.ip
+            }
+        );
 
         res.status(200).json({ 
             token, 
