@@ -97,10 +97,45 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
 
             await db.commit();
 
+            const [movieDataRows]: any = await db.execute(`
+                SELECT m.Title AS movieName, m.poster_url, s.StartTime, s.ScreenID, m.Duration
+                FROM Showtimes s
+                JOIN Movies m ON s.MovieID = m.MovieID
+                WHERE s.ShowtimeID = 4
+              `, [showtimeId]);
+
+              if (!movieDataRows || movieDataRows.length === 0) {
+                res.status(500).json({ message: "Failed to retrieve showtime metadata" });
+                return;
+              }
+
+            console.log("movie data: ", movieDataRows[0]);
+
+              const { movieName, poster_url , StartTime, ScreenID, Duration } = movieDataRows[0];
+              
+              const showtimeDate = new Date(StartTime).toLocaleDateString('en-IN', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              });
+
+              const showtimeTime = new Date(StartTime).toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              });              
+
             res.status(201).json({
                 message: "Seats booked successfully",
                 bookingId: bookingId,
-                seatIds: seatIds
+                seatIds,
+                movieName,
+                poster_url,
+                showtimeDate,
+                showtimeTime,
+                screen: ScreenID,
+                Duration
             });
         } catch (error) {
             await db.rollback();
