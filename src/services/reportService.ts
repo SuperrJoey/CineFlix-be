@@ -18,6 +18,8 @@ export interface ReportData {
     [key: string]: any;
 }
 
+
+
 //CREATING an audit log entry
 
 export const createReport = async (
@@ -30,10 +32,14 @@ export const createReport = async (
         const db = await dbPromise;
         const dataString = JSON.stringify(reportData);
 
-        const [result]: any = await db.execute(
-            "INSERT INTO Reports (AdminID, UserID, ReportType, ReportData, GeneratedDate) VALUES (?, ?, ?, ?, NOW())",
-            [adminId, userId, reportType, dataString]
-        );
+        //CALLING PLSQL HERE
+        const [result]: any = await db.execute("CALL CreateReport(?, ?, ?, ?)", [
+            adminId,
+            userId,
+            reportType,
+            dataString
+        ]);
+        
 
         return {
             reportId: result.insertId,
@@ -57,80 +63,54 @@ export const getReports = async (
         userId?: number;
         startDate?: string;
         endDate?: string;
-        limit?: number;
-        offset?: number;
     } = {}
 ) => {
     try {
         const db = await dbPromise;
-        let query = `
-        SELECT r.ReportID, r.AdminID, r.UserID, r.ReportType, r.ReportData, r.GeneratedDate,
-                 a.AdminRole, admin.Name as AdminName,
-                 u.Username as UserUsername, u.Name as UserName
-          FROM Reports r
-          LEFT JOIN Admins a ON r.AdminID = a.AdminID
-          LEFT JOIN Users admin ON a.UserID = admin.UserID
-          LEFT JOIN Users u ON r.UserID = u.UserID
-          WHERE 1=1
-          `;
 
-        const params: any[] = [];
+        // Normalize reportType to a string or null
+        const reportType = Array.isArray(filters.reportType)
+            ? filters.reportType.join(',')
+            : filters.reportType ?? null;
 
-        if (filters.reportType) {
-            if (Array.isArray(filters.reportType)) {
-                query += " AND r.ReportType IN (?" + ",?".repeat(filters.reportType.length - 1) + ")";
-                params.push(...filters.reportType);
-            } else {
-                query += " AND r.ReportType = ?";
-                params.push(filters.reportType);
-            }
-        }
+        // Ensure all params are defined or set to null
+        const params = [
+            reportType,
+            filters.adminId ?? null,
+            filters.userId ?? null,
+            filters.startDate ?? null,
+            filters.endDate ?? null
+        ];
 
-        if (filters.adminId) {
-            query += "AND r.AdminID = ?";
-            params.push(filters.adminId);
-        }
-        if (filters.userId) {
-            query += " AND r.UserID = ?";
-            params.push(filters.userId);
-        }
-        
-        if (filters.startDate) {
-            query += " AND r.GeneratedDate >= ?";
-            params.push(filters.startDate);
-        }
-        
-        if (filters.endDate) {
-            query += " AND r.GeneratedDate <= ?";
-            params.push(filters.endDate);
-        }
-        
-        query += " ORDER BY r.GeneratedDate DESC";
+        //CALLING PLSQL HERE
+        const [rows]: any = await db.execute("CALL GetReports(?, ?, ?, ?, ?)", params);
 
-        const [rows]: any = await db.execute(query, params);
+        const resultRows = rows?.[0] ?? [];
 
-        return rows.map((row: any) => {
+        return resultRows.map((row: any) => {
             if (!row.ReportData) {
                 console.warn("Invalid ReportData found for reportId:", row.ReportID);
-              }
+            }
             const reportData = row.ReportData ? JSON.parse(row.ReportData) : {};
             return {
-            reportId: row.ReportID,
-            adminId: row.AdminID,
-            userId: row.UserID,
-            adminName: row.AdminName,
-            adminRole: row.AdminRole,
-            userName: row.UserName,
-            userUsername: row.UserUsername,
-            reportType: row.ReportType,
-            generatedDate: row.GeneratedDate,
-            data: reportData
+                reportId: row.ReportID,
+                adminId: row.AdminID,
+                userId: row.UserID,
+                adminName: row.AdminName,
+                adminRole: row.AdminRole,
+                userName: row.UserName,
+                userUsername: row.UserUsername,
+                reportType: row.ReportType,
+                generatedDate: row.GeneratedDate,
+                data: reportData
             };
         });
     } catch (error) {
         console.error("Error fetching reports:", error);
+        throw error; // Optional: allow upper layers to catch it
     }
-}
+};
+
 
 export const getReportById = async (reportId: number) => {
     try {
@@ -171,3 +151,4 @@ export const getReportById = async (reportId: number) => {
     throw error;
     }
 }
+

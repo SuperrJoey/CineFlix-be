@@ -7,23 +7,11 @@ import { json } from "stream/consumers";
 
 export const getReports = async (req: AuthRequest, res: Response) => {
     try {
-        const {
-            reportType,
-            adminId,
-            userId,
-            startDate,
-            endDate,
-            limit = 100,
-            offset = 0
-        } = req.query;
+        const { reportType, adminId, userId, startDate, endDate, limit = 100, offset = 0 } = req.query;
 
-        let reportTypes;
-
-        if (typeof reportType === 'string') {
-            reportTypes = reportType.split(',') as reportService.ReportType[];
-        }  else if (Array.isArray(reportType)) {
-            reportTypes = reportType as reportService.ReportType[];
-        }
+        const reportTypes = typeof reportType === 'string' 
+            ? reportType.split(',').map(type => type as reportService.ReportType) 
+            : (reportType as reportService.ReportType[]);
 
         const reports = await reportService.getReports({
             reportType: reportTypes,
@@ -31,8 +19,6 @@ export const getReports = async (req: AuthRequest, res: Response) => {
             userId: userId ? parseInt(userId as string) : undefined,
             startDate: startDate as string,
             endDate: endDate as string,
-            limit: parseInt(limit as string),
-            offset: parseInt(offset as string)
         });
 
         res.status(200).json(reports);
@@ -72,7 +58,6 @@ export const getReportSummary = async (req:AuthRequest, res: Response) => {
         const reports = await reportService.getReports({
             startDate: startDate as string,
             endDate: endDate as string,
-            limit: 10000
         });
         const reportsByType: Record<string, number> = {};
         const adminActions: Record<string, number> = {};
