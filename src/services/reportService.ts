@@ -18,8 +18,6 @@ export interface ReportData {
     [key: string]: any;
 }
 
-
-
 //CREATING an audit log entry
 
 export const createReport = async (
