@@ -23,8 +23,9 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log("Incoming Headers:", req.headers);
   console.log("Authorization Header:", authHeader);
-console.log("Extracted Token:", token);
+  console.log("Extracted Token:", token);
   
   if (!token)  {res.status(401).json({ message: "Unauthorized access" });
                 return;}

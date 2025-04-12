@@ -1,4 +1,4 @@
-// src/index.ts - Updated with report routes
+// src/index.ts - Updated with customer routes
 import express from "express";
 import cors from "cors";
 import movieRoutes from "./routes/movieRoutes";
@@ -8,6 +8,7 @@ import showtimeRoutes from "./routes/showtimeRoutes";
 import seatRoutes from "./routes/seatRoutes";
 import staffRoutes from "./routes/staffRoutes";
 import reportRoutes from "./routes/reportsRoutes";
+import customerRoutes from "./routes/customerRoutes";
 import * as reportService from "./services/reportService";
 
 const app = express();
@@ -37,6 +38,7 @@ app.use("/api/showtimes", showtimeRoutes);
 app.use("/api/seats", seatRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/customers", customerRoutes);
 
 const PORT = 5000;
 app.listen(PORT, () => {

@@ -34,5 +34,6 @@ router.post("/", adminOnly, hasPermission("staff", "write"), addStaff);
 router.put("/:id", adminOnly, hasPermission("staff", "write"), updateStaff);
 router.post("/:staffId/work-areas", adminOnly, hasPermission("staff", "write"), assignWorkArea);
 router.post("/schedules", adminOnly, hasPermission("staff", "write"), createWorkSchedule);
+router.post("/view-schedules", adminOnly, hasPermission("staff", "view"), getStaffSchedules);
 
 export default router;
