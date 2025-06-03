@@ -59,7 +59,6 @@ export const logUserAction = (actionType: string) => {
       const path = req.path;
       const ip = req.ip;
       
-      // Only proceed if the request is made by a user
       if (userId) {
         // Override the send function to log after successful responses
         res.send = function(body) {

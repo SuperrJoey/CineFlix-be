@@ -1,6 +1,8 @@
-// src/index.ts - Updated with customer routes
+// src/index.ts
 import express from "express";
 import cors from "cors";
+import http from "http";
+import { Server } from "socket.io";
 import movieRoutes from "./routes/movieRoutes";
 import authRoutes from "./routes/authRoutes";
 import adminRoutes from "./routes/adminRoutes";
@@ -12,8 +14,56 @@ import customerRoutes from "./routes/customerRoutes";
 import * as reportService from "./services/reportService";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173", // Your frontend URL
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 app.use(express.json());
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Create Socket.IO server
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Socket.IO connection handling
+io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id);
+  
+  // Handle joining a showtime room
+  socket.on("join_showtime", (showtimeId) => {
+    socket.join(`showtime_${showtimeId}`);
+    console.log(`User ${socket.id} joined showtime ${showtimeId}`);
+  });
+  
+  // Handle seat selection
+  socket.on("select_seat", ({ showtimeId, seatId, isSelected }) => {
+    console.log(`User ${socket.id} ${isSelected ? 'selected' : 'deselected'} seat ${seatId} in showtime ${showtimeId}`);
+    // Broadcast to all other clients in the same showtime room
+    socket.to(`showtime_${showtimeId}`).emit("seat_selection_updated", {
+      seatId,
+      isSelected,
+      socketId: socket.id
+    });
+  });
+  
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+    // When a user disconnects, we could potentially release their temporary seat selections
+    io.emit("user_disconnected", socket.id);
+  });
+});
+
+// Export io instance to be used in controllers
+export { io };
 
 // Log application startup
 reportService.createReport(
@@ -41,8 +91,8 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/customers", customerRoutes);
 
 const PORT = 5000;
-app.listen(PORT, () => {
-  console.log("Server running!✅");
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}! ✅`);
   
   // Log server startup
   reportService.createReport(
@@ -61,11 +111,11 @@ app.listen(PORT, () => {
   });
 });
 
-// shutting down
+// Shutting down
 process.on('SIGINT', () => {
   console.log('Server shutting down...');
   
-  // loggin
+  // Logging
   reportService.createReport(
     null,
     null,
