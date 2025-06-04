@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import dbPromise from "../config/db";
-import { io } from "../index"; 
+import { io } from "../index";
+import * as reportService from "../services/reportService";
 
 // In-memory store for temporary seat reservations
 // Format: { [showtimeId]: { [seatId]: { socketId, timestamp } } }
@@ -40,7 +41,7 @@ export const getSeatsByShowtime = async (req: Request, res: Response) => {
         const db = await dbPromise;
 
         const [showtimeRows]: any = await db.execute(
-            "SELECT * FROM Showtimes WHERE ShowtimeID = ?",
+            "SELECT * FROM showtimes WHERE showtimeid = $1",
             [showtimeId]
         );
     
@@ -50,15 +51,15 @@ export const getSeatsByShowtime = async (req: Request, res: Response) => {
         }
 
         const [seatRows]: any = await db.execute(`
-            SELECT SeatID, SeatNumber, screenID, ShowtimeID, AvailabilityStatus, BookingID
-            FROM Seats
-            WHERE ShowtimeID = ?
-            ORDER BY SeatNumber        
-            `, [showtimeId]);
+            SELECT seatid, seatnumber, showtimeid, availabilitystatus, bookingid
+            FROM seats
+            WHERE showtimeid = $1
+            ORDER BY seatnumber        
+        `, [showtimeId]);
 
         // Add temporary reservation status to the response
         const seatsWithReservations = seatRows.map((seat: any) => {
-            const temporarilyReserved = temporaryReservations[showtimeId]?.[seat.SeatID];
+            const temporarilyReserved = temporaryReservations[showtimeId]?.[seat.seatid];
             return {
                 ...seat,
                 temporarilyReserved: temporarilyReserved ? true : false
@@ -165,7 +166,7 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
         }
 
         const [showtimeRows]: any = await db.execute(
-            "SELECT * FROM Showtimes WHERE ShowtimeID = ? ",
+            "SELECT * FROM showtimes WHERE showtimeid = $1",
             [showtimeId]
         );
 
@@ -177,17 +178,17 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
         // Check if seats are still available in the database
         for (const seatId of seatIds) {
             const [seatRows]: any = await db.execute(
-                "SELECT * FROM Seats WHERE SeatID = ? AND ShowtimeID = ?",
+                "SELECT * FROM seats WHERE seatid = $1 AND showtimeid = $2",
                 [seatId, showtimeId]
             );
 
             if (seatRows.length === 0) {
-                res.status(404).json({ message: `Seat ID ${seatId} not found for this showtime `});
+                res.status(404).json({ message: `Seat ID ${seatId} not found for this showtime` });
                 return;
             }
 
-            if (seatRows[0].AvailabilityStatus !== 'available') {
-                res.status(409).json({ message: `SeatID ${seatId} is not available` });
+            if (seatRows[0].availabilitystatus !== 'available') {
+                res.status(409).json({ message: `Seat ID ${seatId} is not available` });
                 return;
             }
         }
@@ -198,18 +199,20 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
             const bookingDate = new Date().toISOString().split('T')[0];
 
             const [bookingResult]: any = await db.execute(
-                "INSERT INTO Bookings (UserID, ShowtimeID, BookingDate, AvailabilityStatus) VALUES (?, ?, ?, ?)",
-                [userId, showtimeId, bookingDate, 'confirmed']
+                "INSERT INTO bookings (userid, showtimeid, bookingdate, availabilitystatus) VALUES ($1, $2, $3, 'confirmed') RETURNING bookingid",
+                [userId, showtimeId, bookingDate]
             );
 
-            const bookingId = bookingResult.insertId;
+            const bookingId = bookingResult[0].bookingid;
+
+            // Update all selected seats
             for (const seatId of seatIds) {
                 await db.execute(
-                    "UPDATE Seats SET AvailabilityStatus = 'booked', BookingID = ? WHERE SeatID = ?",
+                    "UPDATE seats SET availabilitystatus = 'booked', bookingid = $1 WHERE seatid = $2",
                     [bookingId, seatId]
                 );
-                
-                // Remove temporary reservation after successful booking
+
+                // Remove temporary reservation
                 if (temporaryReservations[showtimeId]?.[seatId]) {
                     delete temporaryReservations[showtimeId][seatId];
                 }
@@ -217,51 +220,35 @@ export const bookSeats = async (req: AuthRequest, res: Response) => {
 
             await db.commit();
 
-            // Notify all clients about the successful booking
+            // Create audit report
+            await reportService.createReport(
+                null,
+                userId,
+                reportService.ReportType.BOOKING,
+                {
+                    action: "seats_booked",
+                    details: { 
+                        bookingId, 
+                        showtimeId, 
+                        seatIds, 
+                        totalSeats: seatIds.length,
+                        bookingDate 
+                    },
+                    ip: req.ip
+                }
+            );
+
+            // Notify all clients about the seat bookings
             io.to(`showtime_${showtimeId}`).emit("seats_booked", {
-                seatIds,
+                seatIds: seatIds.map(id => parseInt(id)),
+                bookingId,
                 socketId
             });
 
-            const [movieDataRows]: any = await db.execute(`
-                SELECT m.Title AS movieName, m.poster_url, s.StartTime, s.ScreenID, m.Duration
-                FROM Showtimes s
-                JOIN Movies m ON s.MovieID = m.MovieID
-                WHERE s.ShowtimeID = ?
-              `, [showtimeId]);
-
-              if (!movieDataRows || movieDataRows.length === 0) {
-                res.status(500).json({ message: "Failed to retrieve showtime metadata" });
-                return;
-              }
-
-            console.log("movie data: ", movieDataRows[0]);
-
-              const { movieName, poster_url , StartTime, ScreenID, Duration } = movieDataRows[0];
-              
-              const showtimeDate = new Date(StartTime).toLocaleDateString('en-IN', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              });
-
-              const showtimeTime = new Date(StartTime).toLocaleTimeString('en-IN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              });              
-
             res.status(201).json({
                 message: "Seats booked successfully",
-                bookingId: bookingId,
-                seatIds,
-                movieName,
-                poster_url,
-                showtimeDate,
-                showtimeTime,
-                screen: ScreenID,
-                Duration
+                bookingId,
+                seatIds
             });
         } catch (error) {
             await db.rollback();
@@ -278,61 +265,103 @@ export const cancelBooking = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
 
     if (!userId) {
-        res.status(401).json({ message: "User must be logged in to cancel booking" });
+        res.status(401).json({ message: "User must be logged in" });
         return;
     }
 
     try {
         const db = await dbPromise;
 
+        // Check if booking exists and belongs to the user
         const [bookingRows]: any = await db.execute(
-            "SELECT * FROM Bookings WHERE BookingID = ? AND UserID = ?",
+            "SELECT * FROM bookings WHERE bookingid = $1 AND userid = $2",
             [bookingId, userId]
         );
 
         if (bookingRows.length === 0) {
-            res.status(404).json({ message: "You can only cancel your own bookings" });
+            res.status(404).json({ message: "Booking not found or doesn't belong to you" });
             return;
         }
 
-        const showtimeId = bookingRows[0].ShowtimeID;
-        
-        // Get seats associated with this booking
-        const [seatRows]: any = await db.execute(
-            "SELECT SeatID FROM Seats WHERE BookingID = ?",
-            [bookingId]
+        const booking = bookingRows[0];
+        const showtimeId = booking.showtimeid;
+
+        // Check if showtime has already started (prevent cancellation)
+        const [showtimeRows]: any = await db.execute(
+            "SELECT starttime FROM showtimes WHERE showtimeid = $1",
+            [showtimeId]
         );
-        
-        const seatIds = seatRows.map((row: any) => row.SeatID);
+
+        if (showtimeRows.length > 0) {
+            const showtimeStart = new Date(showtimeRows[0].starttime);
+            const now = new Date();
+            
+            if (now >= showtimeStart) {
+                res.status(400).json({ message: "Cannot cancel booking after showtime has started" });
+                return;
+            }
+        }
 
         await db.beginTransaction();
 
         try {
-            await db.execute(
-                "UPDATE Bookings SET AvailabilityStatus = 'cancelled' WHERE BookingID = ?",
+            // Get all seats for this booking
+            const [seatRows]: any = await db.execute(
+                "SELECT seatid FROM seats WHERE bookingid = $1",
                 [bookingId]
             );
 
+            const seatIds = seatRows.map((seat: any) => seat.seatid);
+
+            // Update seats to be available again
             await db.execute(
-                "UPDATE Seats SET AvailabilityStatus = 'available', BookingID = NULL WHERE BookingID = ?",
+                "UPDATE seats SET availabilitystatus = 'available', bookingid = NULL WHERE bookingid = $1",
+                [bookingId]
+            );
+
+            // Update booking status
+            await db.execute(
+                "UPDATE bookings SET availabilitystatus = 'cancelled' WHERE bookingid = $1",
                 [bookingId]
             );
 
             await db.commit();
-            
-            // Notify all clients about the cancelled booking
+
+            // Create audit report
+            await reportService.createReport(
+                null,
+                userId,
+                reportService.ReportType.BOOKING,
+                {
+                    action: "booking_cancelled",
+                    details: { 
+                        bookingId, 
+                        showtimeId, 
+                        seatIds, 
+                        totalSeats: seatIds.length 
+                    },
+                    ip: req.ip
+                }
+            );
+
+            // Notify all clients about the cancellation
             io.to(`showtime_${showtimeId}`).emit("booking_cancelled", {
-                seatIds
+                seatIds,
+                bookingId
             });
 
-            res.status(200).json({ message: "Booking cancelled successfully" });
+            res.status(200).json({
+                message: "Booking cancelled successfully",
+                bookingId,
+                releasedSeats: seatIds
+            });
         } catch (error) {
             await db.rollback();
             throw error;
         }
     } catch (error) {
         console.error("Error cancelling booking:", error);
-        res.status(500).json({ message: "Server error"});
+        res.status(500).json({ message: "Server error" });
     }
 };
 
@@ -340,7 +369,7 @@ export const getUserBookings = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
 
     if (!userId) {
-        res.status(401).json({ message: "User must be logged in to view bookings" });
+        res.status(401).json({ message: "User must be logged in" });
         return;
     }
 
@@ -348,31 +377,48 @@ export const getUserBookings = async (req: AuthRequest, res: Response) => {
         const db = await dbPromise;
 
         const [bookingRows]: any = await db.execute(`
-            SELECT b.BookingID, b.ShowtimeID, b.BookingDate, b.AvailabilityStatus,
-                   s.StartTime, s.EndTime, s.ScreenID,
-                   m.MovieID, m.Title, m.Genre, m.Duration
-            FROM Bookings b
-            JOIN Showtimes s ON b.ShowtimeID = s.ShowtimeID
-            JOIN Movies m ON s.MovieID = m.MovieID
-            WHERE b.UserID = ?
-            ORDER BY b.BookingDate DESC, s.StartTime ASC
-        `, [userId]);  
+            SELECT 
+                b.bookingid, 
+                b.showtimeid, 
+                b.bookingdate, 
+                b.availabilitystatus as booking_status,
+                s.starttime,
+                s.endtime,
+                m.title as movie_title,
+                m.genre,
+                m.duration,
+                STRING_AGG(se.seatnumber::text, ',' ORDER BY se.seatnumber) as seat_numbers
+            FROM bookings b
+            JOIN showtimes s ON b.showtimeid = s.showtimeid
+            JOIN movies m ON s.movieid = m.movieid
+            LEFT JOIN seats se ON b.bookingid = se.bookingid
+            WHERE b.userid = $1
+            GROUP BY b.bookingid, b.showtimeid, b.bookingdate, b.availabilitystatus,
+                     s.starttime, s.endtime, m.title, m.genre, m.duration
+            ORDER BY b.bookingdate DESC, s.starttime DESC
+        `, [userId]);
 
-        const bookingWithSeats = await Promise.all(bookingRows.map(async (booking: any) => {
-            const [seatRows]: any = await db.execute(
-                "SELECT SeatID, SeatNumber, ScreenID FROM Seats WHERE BookingID = ?",
-                [booking.BookingID]
-            );
-
-            return {
-                ...booking,
-                seats: seatRows
-            };
+        // Format the response
+        const formattedBookings = bookingRows.map((booking: any) => ({
+            bookingId: booking.bookingid,
+            showtimeId: booking.showtimeid,
+            bookingDate: booking.bookingdate,
+            bookingStatus: booking.booking_status,
+            showtime: {
+                startTime: booking.starttime,
+                endTime: booking.endtime
+            },
+            movie: {
+                title: booking.movie_title,
+                genre: booking.genre,
+                duration: booking.duration
+            },
+            seatNumbers: booking.seat_numbers ? booking.seat_numbers.split(',').map((n: string) => parseInt(n)) : []
         }));
 
-        res.status(200).json(bookingWithSeats);
+        res.status(200).json(formattedBookings);
     } catch (error) {
-        console.error("Error fetching user bookings: ", error);
-        res.status(500).json({ message: "Server Error" });
+        console.error("Error fetching user bookings:", error);
+        res.status(500).json({ message: "Server error" });
     }
 };

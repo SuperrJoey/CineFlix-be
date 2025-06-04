@@ -7,38 +7,7 @@ export const getMovies = async (req: Request, res: Response) => {
         const db = await dbPromise;
         const [movies]: any = await db.execute("SELECT * FROM movies");
         
-        // const moviesWithPosters =  await Promise.all(
-        //     movies.map(async (movie: any) => {
-        //         try {
-        //             const searchResults = await tmdbService.searchMovie(movie.Title);
-    
-        //             if (searchResults && searchResults.length > 0) {
-        //                 const posterPath = searchResults[0].poster_path;
-        //                 const overview = searchResults[0].overview;
-        //                 return {
-        //                     ...movie,
-        //                     poster_url: tmdbService.getFullPosterUrl(posterPath),
-        //                     overview
-        //                 };
-        //             }
-    
-        //             return {
-        //                 ...movie,
-        //                 poster_url: null,
-        //                 overview: null
-        //             };
-        //         } catch (error) {
-        //             console.error(`Error fetching poster for ${movie.title}:`, error);
-        //             return {
-        //                 ...movie,
-        //                 poster_url: null,
-        //                 overview: null
-        //             };
-        //         }
-        //     })
-        // );
-
-        // res.json(moviesWithPosters);
+        // ... existing code ...
         res.json(movies);
     } catch (error) {
         console.error("Database error: ", error);
@@ -51,7 +20,7 @@ export const getMovieById = async (req: Request, res: Response) => {
 
     try {
         const db = await dbPromise;
-        const [rows]: any = await db.execute("SELECT * FROM movies WHERE MovieID = ?", [id]);
+        const [rows]: any = await db.execute("SELECT * FROM movies WHERE MovieID = $1", [id]);
 
         if (rows.length === 0) {
              res.status(404).json({ message: "Movie not found" });
@@ -60,22 +29,7 @@ export const getMovieById = async (req: Request, res: Response) => {
 
         const movie = rows[0]; 
 
-        // try {
-        //     const searchResults = await tmdbService.searchMovie(movie.Title);
-
-        //     if (searchResults && searchResults.length > 0) {
-        //         const posterPath = searchResults[0].poster_path;
-        //         movie.poster_url = tmdbService.getFullPosterUrl(posterPath);
-        //         movie.overview = searchResults[0].overview;
-        //     } else {
-        //         movie.poster_url = null;
-        //         movie.overview = null;
-        //     }
-        // } catch (error) {
-        //     console.error("Error fetching TMDB data:", error);
-        //     movie.poster_url = null;
-        //     movie.overview = null;
-        // }
+        // ... existing code ...
         
         res.json(movie);
     } catch (error) {
@@ -96,7 +50,7 @@ export const addMovie = async (req: Request, res: Response) => {
         const db = await dbPromise;
 
         const [existingMovies]:any = await db.execute(
-            "SELECT * FROM movies WHERE Title = ? AND duration = ?", 
+            "SELECT * FROM movies WHERE Title = $1 AND duration = $2", 
             [title, duration]
         );
 
@@ -121,7 +75,7 @@ export const addMovie = async (req: Request, res: Response) => {
         }
 
         await db.execute(
-            "INSERT INTO movies (Title, Genre, Rating, Duration, poster_url, overview) VALUES (?, ?, ?, ?, ?, ?)", 
+            "INSERT INTO movies (Title, Genre, Rating, Duration, poster_url, overview) VALUES ($1, $2, $3, $4, $5, $6)", 
         [title, genre, rating, duration, posterUrl, overview]);
 
         res.status(201).json({
@@ -149,7 +103,7 @@ export const updateMoviesMetadata = async (req: Request, res: Response) => {
 
         for (const movie of movies) {
             try {
-                const searchResults = await tmdbService.searchMovie(movie.Title);
+                const searchResults = await tmdbService.searchMovie(movie.title);
 
                 if (searchResults && searchResults.length > 0) {
                     const posterPath = searchResults[0].poster_path;
@@ -157,14 +111,14 @@ export const updateMoviesMetadata = async (req: Request, res: Response) => {
                     const overview = searchResults[0].overview;
 
                     await db.execute(
-                        "UPDATE movies SET poster_url = ?, overview = ? WHERE MovieID = ?",
-                        [posterUrl, overview, movie.MovieID]
+                        "UPDATE movies SET poster_url = $1, overview = $2 WHERE MovieID = $3",
+                        [posterUrl, overview, movie.movieid]
                     );
 
                     updatedCount++;
                 }
             } catch (error) {
-                console.error(`Error updating metadata for movie ${movie.Title}: `, error);
+                console.error(`Error updating metadata for movie ${movie.title}: `, error);
             }
         }
 

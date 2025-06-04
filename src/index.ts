@@ -65,6 +65,9 @@ io.on("connection", (socket) => {
 // Export io instance to be used in controllers
 export { io };
 
+// Temporarily commented out to allow server startup without database
+// TODO: Uncomment when database is properly configured
+/*
 // Log application startup
 reportService.createReport(
   null,
@@ -80,6 +83,7 @@ reportService.createReport(
 ).catch(err => {
   console.error("Failed to log system startup:", err);
 });
+*/
 
 app.use("/api", movieRoutes);
 app.use("/api/auth", authRoutes);
@@ -90,9 +94,14 @@ app.use("/api/staff", staffRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/customers", customerRoutes);
 
-const PORT = 5000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}! ✅`);
+  console.log(`🔗 API available at: http://localhost:${PORT}/api`);
+  console.log(`🌐 CORS enabled for: http://localhost:5173`);
+  
+  // Temporarily commented out to allow server startup without database
+  // TODO: Uncomment when database is properly configured
   
   // Log server startup
   reportService.createReport(
@@ -109,12 +118,16 @@ server.listen(PORT, () => {
   ).catch(err => {
     console.error("Failed to log server startup:", err);
   });
+  
 });
 
 // Shutting down
 process.on('SIGINT', () => {
   console.log('Server shutting down...');
   
+  // Temporarily commented out to allow server startup without database
+  // TODO: Uncomment when database is properly configured
+  /*
   // Logging
   reportService.createReport(
     null,
@@ -132,4 +145,6 @@ process.on('SIGINT', () => {
   }).finally(() => {
     process.exit(0);
   });
+  */
+  process.exit(0);
 });

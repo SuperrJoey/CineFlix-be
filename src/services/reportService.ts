@@ -30,17 +30,21 @@ export const createReport = async (
         const db = await dbPromise;
         const dataString = JSON.stringify(reportData);
 
-        //CALLING PLSQL HERE
-        const [result]: any = await db.execute("CALL CreateReport(?, ?, ?, ?)", [
-            adminId,
-            userId,
-            reportType,
-            dataString
-        ]);
+        // Using direct INSERT instead of function call
+        const [result]: any = await db.execute(
+            `INSERT INTO Reports (AdminID, UserID, ReportType, ReportData, GeneratedDate)
+             VALUES ($1, $2, $3, $4, NOW())
+             RETURNING ReportID as reportid`,
+            [
+                adminId,
+                userId,
+                reportType,
+                dataString
+            ]
+        );
         
-
         return {
-            reportId: result.insertId,
+            reportId: result[0].reportid,
             success: true
         };
     } catch (error) {
@@ -61,6 +65,8 @@ export const getReports = async (
         userId?: number;
         startDate?: string;
         endDate?: string;
+        limit?: number;
+        offset?: number;
     } = {}
 ) => {
     try {
@@ -77,29 +83,30 @@ export const getReports = async (
             filters.adminId ?? null,
             filters.userId ?? null,
             filters.startDate ?? null,
-            filters.endDate ?? null
+            filters.endDate ?? null,
+            filters.limit ?? 100,
+            filters.offset ?? 0
         ];
 
-        //CALLING PLSQL HERE
-        const [rows]: any = await db.execute("CALL GetReports(?, ?, ?, ?, ?)", params);
+        //CALLING PostgreSQL function HERE
+        const [rows]: any = await db.execute("SELECT * FROM GetReports($1, $2, $3, $4, $5, $6, $7)", params);
 
-        const resultRows = rows?.[0] ?? [];
-
-        return resultRows.map((row: any) => {
-            if (!row.ReportData) {
-                console.warn("Invalid ReportData found for reportId:", row.ReportID);
+        return rows.map((row: any) => {
+            if (!row.reportdata) {
+                console.warn("Invalid ReportData found for reportId:", row.reportid);
             }
-            const reportData = row.ReportData ? JSON.parse(row.ReportData) : {};
+            // PostgreSQL returns JSONB as object, no need to parse
+            const reportData = row.reportdata || {};
             return {
-                reportId: row.ReportID,
-                adminId: row.AdminID,
-                userId: row.UserID,
-                adminName: row.AdminName,
-                adminRole: row.AdminRole,
-                userName: row.UserName,
-                userUsername: row.UserUsername,
-                reportType: row.ReportType,
-                generatedDate: row.GeneratedDate,
+                reportId: row.reportid,
+                adminId: row.adminid,
+                userId: row.userid,
+                adminName: row.adminname,
+                adminRole: row.adminrole,
+                userName: row.username,
+                userUsername: row.userusername,
+                reportType: row.reporttype,
+                generatedDate: row.generateddate,
                 data: reportData
             };
         });
@@ -122,7 +129,7 @@ export const getReportById = async (reportId: number) => {
       LEFT JOIN Admins a ON r.AdminID = a.AdminID
       LEFT JOIN Users admin ON a.UserID = admin.UserID
       LEFT JOIN Users u ON r.UserID = u.UserID
-      WHERE r.ReportID = ?
+      WHERE r.ReportID = $1
     `, [reportId]);
 
     if (rows.length === 0) {
@@ -130,18 +137,19 @@ export const getReportById = async (reportId: number) => {
     }
 
     const row = rows[0];
-    const reportData = JSON.parse(row.ReportData);
+    // PostgreSQL returns JSONB as object, no need to parse if it's already JSONB
+    const reportData = typeof row.reportdata === 'string' ? JSON.parse(row.reportdata) : row.reportdata;
 
     return {
-      reportId: row.ReportID,
-      adminId: row.AdminID,
-      userId: row.UserID,
-      adminName: row.AdminName,
-      adminRole: row.AdminRole,
-      userName: row.UserName,
-      userUsername: row.UserUsername,
-      reportType: row.ReportType,
-      generatedDate: row.GeneratedDate,
+      reportId: row.reportid,
+      adminId: row.adminid,
+      userId: row.userid,
+      adminName: row.adminname,
+      adminRole: row.adminrole,
+      userName: row.username,
+      userUsername: row.userusername,
+      reportType: row.reporttype,
+      generatedDate: row.generateddate,
       data: reportData
     };
   } catch (error) {

@@ -30,3 +30,8 @@ yarn-debug.log*
 yarn-error.log*
 
 *.sql
+
+MIGRATION_COMPLETE.md
+
+src/pwid.txt
+src/dbqueries.txt

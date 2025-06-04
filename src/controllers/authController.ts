@@ -34,7 +34,7 @@ export const signup: RequestHandler = async (req, res) => {
         const db = await dbPromise;
 
         // Prevent duplicate usernames
-        const [existingUsers]: any = await db.execute("SELECT * FROM users WHERE username = ?", [username]);
+        const [existingUsers]: any = await db.execute("SELECT * FROM users WHERE username = $1", [username]);
         if (existingUsers.length > 0) {
             res.status(400).json({ message: "Username already exists❌" });
             return;
@@ -45,27 +45,27 @@ export const signup: RequestHandler = async (req, res) => {
         try {
             // Insert user with validated role
             const [userResult]: any = await db.execute(
-                "INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", 
+                "INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4) RETURNING UserID", 
                 [username, hashedPw, name, role]
             );
             
-            const userId = userResult.insertId;
+            const userId = userResult[0].userid;
 
             if (role === "admin" ) {
                 await db.execute(
-                    "INSERT INTO admins(UserID, AdminRole, LastLogin) VALUES (?, ?, NOW())", 
+                    "INSERT INTO admins(UserID, AdminRole, LastLogin) VALUES ($1, $2, NOW())", 
                 [userId, adminRole]
                 );
 
                 const [adminResult]: any = await db.execute(
-                    "SELECT AdminID FROM admins WHERE UserID = ?",
+                    "SELECT AdminID FROM admins WHERE UserID = $1",
                     [userId]
                 );
 
-                const adminID = adminResult[0].AdminID;
+                const adminID = adminResult[0].adminid;
     
                 await db.execute(
-                    "INSERT INTO permissions (AdminID, Role, AccessLevel) VALUES ( ?, ?, ?)",
+                    "INSERT INTO permissions (AdminID, Role, AccessLevel) VALUES ($1, $2, $3)",
                     [adminID, "movies", "read, write, delete"]
                 );
 
@@ -122,7 +122,7 @@ export const login: RequestHandler = async (req, res) => {
 
     try {
         const db = await dbPromise;
-        const [ rows ]: any = await db.execute("SELECT u.*, a.AdminID, a.AdminRole FROM users u LEFT JOIN admins a ON u.UserID = a.UserID WHERE u.username = ?", [username]);
+        const [ rows ]: any = await db.execute("SELECT u.*, a.AdminID, a.AdminRole FROM users u LEFT JOIN admins a ON u.UserID = a.UserID WHERE u.username = $1", [username]);
 
         if (rows.length === 0) {
             await reportService.createReport(
@@ -143,12 +143,12 @@ export const login: RequestHandler = async (req, res) => {
 
         const user = rows[0];
         
-        const isMatch = await bcrypt.compare(password, user.Password);
+        const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
             await reportService.createReport(
                 null,
-                user.UserID,
+                user.userid,
                 reportService.ReportType.USER_LOGIN,
                 {
                     action: "login_failed",
@@ -162,20 +162,20 @@ export const login: RequestHandler = async (req, res) => {
             return;
         }
 
-        if (user.AdminID) {
+        if (user.adminid) {
             await db.execute(
-                "UPDATE admins SET LastLogin = NOW() WHERE AdminID = ?",
-                [user.AdminID]
+                "UPDATE admins SET LastLogin = NOW() WHERE AdminID = $1",
+                [user.adminid]
             )
         }
 
         let permissions = [];
-        if (user.AdminID) {
+        if (user.adminid) {
             const [permRows]: any = await db.execute(
-                "SELECT Role, AccessLevel FROM permissions WHERE AdminID = ?",
-                [user.AdminID]
+                "SELECT Role, AccessLevel FROM permissions WHERE AdminID = $1",
+                [user.adminid]
             );
-            console.log("✅ Permissions fetched for AdminID", user.AdminID, ":", permRows);
+            console.log("✅ Permissions fetched for AdminID", user.adminid, ":", permRows);
 
 
             permissions = permRows;
@@ -184,32 +184,32 @@ export const login: RequestHandler = async (req, res) => {
         console.log("User object before token creation: ", user);
 
         const token = jwt.sign({ 
-            id: user.UserID, 
-            role: user.Role,
-            adminId: user.AdminID,
-            adminRole: user.AdminRole,
+            id: user.userid, 
+            role: user.role,
+            adminId: user.adminid,
+            adminRole: user.adminrole,
             permissions
         }, SECRET_KEY!, {expiresIn: "1h"});
 
         await reportService.createReport(
-            user.AdminID || null,
-            user.UserID,
+            user.adminid || null,
+            user.userid,
             reportService.ReportType.USER_LOGIN,
             {
                 action: "login_success",
                 username,
-                role: user.Role,
-                isAdmin: !!user.AdminID,
+                role: user.role,
+                isAdmin: !!user.adminid,
                 ip: req.ip
             }
         );
 
         res.status(200).json({ 
             token, 
-            role: user.Role,
-            name: user.Name,
-            isAdmin: !!user.AdminID,
-            adminRole: user.AdminRole || null,
+            role: user.role,
+            name: user.name,
+            isAdmin: !!user.adminid,
+            adminRole: user.adminrole || null,
             permissions
         });
     } catch (err) {

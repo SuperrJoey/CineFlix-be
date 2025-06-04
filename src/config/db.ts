@@ -1,26 +1,60 @@
-import mysql from "mysql2/promise";
+import { Pool } from "pg";
 import dotenv from "dotenv";
-
 
 dotenv.config();
 
-async function createDBConnection() {
+// Create a connection pool for better performance
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    max: 20, // Maximum number of clients in the pool
+    idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+    connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+});
+
+// Test the connection
+pool.on('connect', () => {
+    console.log('Connected to PostgreSQL database ✅');
+});
+
+pool.on('error', (err: Error) => {
+    console.error('Database connection error ❌', err);
+    process.exit(1);
+});
+
+// Helper function to execute queries with better error handling
+export const query = async (text: string, params?: any[]): Promise<any> => {
+    const client = await pool.connect();
     try {
-        const connection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-        });
-
-        console.log("Connected to the database ✅");
-        return connection;
+        const result = await client.query(text, params);
+        return result;
     } catch (error) {
-        console.error("Database connection failed❌", error);
-        process.exit(1);
+        console.error('Database query error:', error);
+        throw error;
+    } finally {
+        client.release();
     }
-}
+};
 
-const dbPromise = createDBConnection();
+// For compatibility with existing code that expects db.execute()
+export const createDBConnection = () => {
+    return {
+        execute: async (text: string, params?: any[]) => {
+            const result = await query(text, params);
+            return [result.rows];
+        },
+        beginTransaction: async () => {
+            return await query('BEGIN');
+        },
+        commit: async () => {
+            return await query('COMMIT');
+        },
+        rollback: async () => {
+            return await query('ROLLBACK');
+        }
+    };
+};
+
+const dbPromise = Promise.resolve(createDBConnection());
 
 export default dbPromise;

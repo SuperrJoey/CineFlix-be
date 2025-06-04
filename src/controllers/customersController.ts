@@ -9,19 +9,20 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
 
         const [customers]: any = await db.execute(`
             SELECT 
-                u.UserID, u.username, u.name, u.role,
-                COUNT(DISTINCT b.BookingID) as totalBookings
+                u.userid, u.username, u.name, u.role,
+                COUNT(DISTINCT b.bookingid) as totalbookings
             FROM 
                 users u
             LEFT JOIN 
-                Bookings b ON u.UserID = b.UserID
+                bookings b ON u.userid = b.userid
             WHERE 
                 u.role = 'user'
             GROUP BY 
-                u.UserID
+                u.userid, u.username, u.name, u.role
+            ORDER BY u.name
         `);
 
-        res.status(200).json(customers); // <- don't `return` this
+        res.status(200).json(customers);
     } catch (error) {
         console.error("Error fetching customers:", error);
         res.status(500).json({ message: "Server error while fetching customers" });
@@ -40,9 +41,9 @@ export const getCustomerById = async (req: AuthRequest, res: Response): Promise<
         const db = await dbPromise;
 
         const [customerRows]: any = await db.execute(`
-            SELECT UserID, username, name, role
+            SELECT userid, username, name, role
             FROM users
-            WHERE UserID = ? AND role = 'user'
+            WHERE userid = $1 AND role = 'user'
         `, [customerId]);
 
         if (customerRows.length === 0) {
@@ -54,24 +55,37 @@ export const getCustomerById = async (req: AuthRequest, res: Response): Promise<
 
         const [bookingRows]: any = await db.execute(`
             SELECT 
-                b.BookingID, b.ShowtimeID, b.BookingDate, b.AvailabilityStatus,
-                m.Title as movieTitle, m.Genre, s.StartTime, s.ScreenID,
-                COUNT(st.SeatID) as seatCount
+                b.bookingid, b.showtimeid, b.bookingdate, b.availabilitystatus,
+                m.title as movietitle, m.genre, s.starttime,
+                COUNT(st.seatid) as seatcount
             FROM 
-                Bookings b
+                bookings b
             JOIN 
-                Showtimes s ON b.ShowtimeID = s.ShowtimeID
+                showtimes s ON b.showtimeid = s.showtimeid
             JOIN 
-                Movies m ON s.MovieID = m.MovieID
+                movies m ON s.movieid = m.movieid
             LEFT JOIN 
-                Seats st ON b.BookingID = st.BookingID
+                seats st ON b.bookingid = st.bookingid
             WHERE 
-                b.UserID = ?
+                b.userid = $1
             GROUP BY 
-                b.BookingID
+                b.bookingid, b.showtimeid, b.bookingdate, b.availabilitystatus,
+                m.title, m.genre, s.starttime
             ORDER BY 
-                b.BookingDate DESC, s.StartTime DESC
+                b.bookingdate DESC, s.starttime DESC
         `, [customerId]);
+
+        // Create audit report for customer data access
+        await reportService.createReport(
+            req.user?.adminId || null,
+            parseInt(customerId),
+            reportService.ReportType.ADMIN_ACTION,
+            {
+                action: "customer_data_accessed",
+                details: { customerId, accessedBy: req.user?.id },
+                ip: req.ip
+            }
+        );
 
         res.status(200).json({
             ...customer,
