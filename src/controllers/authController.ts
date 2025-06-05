@@ -177,8 +177,35 @@ export const login: RequestHandler = async (req, res) => {
             );
             console.log("✅ Permissions fetched for AdminID", user.adminid, ":", permRows);
 
+            // If admin has no permissions, create default ones
+            if (permRows.length === 0) {
+                console.log("🔧 Creating default permissions for admin", user.adminid);
+                
+                const defaultPermissions = [
+                    { role: 'movies', access: 'read, write, delete' },
+                    { role: 'staff', access: 'read, write, delete' },
+                    { role: 'customers', access: 'read, write, delete' },
+                    { role: 'reports', access: 'read, write, delete' },
+                    { role: 'bookings', access: 'read, write, delete' }
+                ];
 
-            permissions = permRows;
+                for (const perm of defaultPermissions) {
+                    await db.execute(
+                        "INSERT INTO permissions (AdminID, Role, AccessLevel) VALUES ($1, $2, $3)",
+                        [user.adminid, perm.role, perm.access]
+                    );
+                }
+
+                // Fetch the newly created permissions
+                const [newPermRows]: any = await db.execute(
+                    "SELECT Role, AccessLevel FROM permissions WHERE AdminID = $1",
+                    [user.adminid]
+                );
+                permissions = newPermRows;
+                console.log("✅ Created default permissions:", permissions);
+            } else {
+                permissions = permRows;
+            }
         }
 
         console.log("User object before token creation: ", user);

@@ -6,10 +6,14 @@ dotenv.config();
 // Create a connection pool for better performance
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    ssl: {
+        rejectUnauthorized: false
+    },
     max: 20, // Maximum number of clients in the pool
     idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-    connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+    connectionTimeoutMillis: 5000, // Increased timeout for Neon
+    keepAlive: true, // Keep connections alive
+    keepAliveInitialDelayMillis: 10000, // Start keepalive after 10 seconds
 });
 
 // Test the connection
@@ -19,7 +23,8 @@ pool.on('connect', () => {
 
 pool.on('error', (err: Error) => {
     console.error('Database connection error ❌', err);
-    process.exit(1);
+    // Don't exit the process on connection errors, just log them
+    console.error('Attempting to reconnect...');
 });
 
 // Helper function to execute queries with better error handling

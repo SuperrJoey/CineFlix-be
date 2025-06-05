@@ -34,6 +34,7 @@ export const createReport = async (
         const [result]: any = await db.execute(
             `INSERT INTO Reports (AdminID, UserID, ReportType, ReportData, GeneratedDate)
              VALUES ($1, $2, $3, $4, NOW())
+             ON CONFLICT DO NOTHING
              RETURNING ReportID as reportid`,
             [
                 adminId,
@@ -43,6 +44,14 @@ export const createReport = async (
             ]
         );
         
+        // If no row was inserted (due to conflict), return success anyway
+        if (!result || result.length === 0) {
+            return {
+                success: true,
+                message: "Report already exists"
+            };
+        }
+
         return {
             reportId: result[0].reportid,
             success: true
