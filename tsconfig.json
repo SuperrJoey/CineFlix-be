@@ -101,7 +101,6 @@
     // "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
 
     /* Node.js */
-    "types": ["node"],
     "resolveJsonModule": true,
 
     /* Skip lib check for faster compilation */
