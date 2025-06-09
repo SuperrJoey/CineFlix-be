@@ -9,7 +9,8 @@ import {
     getStaffSchedules
 } from "../controllers/staffController"
 
-import { authenticateToken, AuthRequest } from "../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
+import { AuthRequest } from "../types/express";
 import { adminOnly, hasPermission } from "../middleware/adminOnly";
 
 const router = Router();

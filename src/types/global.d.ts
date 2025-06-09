@@ -15,6 +15,10 @@ declare var process: NodeJS.Process;
 declare var console: Console;
 declare var Buffer: BufferConstructor;
 declare var global: typeof globalThis;
+declare var setInterval: typeof globalThis.setInterval;
+declare var clearInterval: typeof globalThis.clearInterval;
+declare var setTimeout: typeof globalThis.setTimeout;
+declare var clearTimeout: typeof globalThis.clearTimeout;
 
 // Console interface for better compatibility
 interface Console {

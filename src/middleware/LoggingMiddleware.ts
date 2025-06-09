@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AuthRequest } from "./auth";
+import { AuthRequest } from "../types/express";
 import * as reportService from "../services/reportService";
 
 export const logAdminAction = (actionType: string) => {

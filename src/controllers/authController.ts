@@ -1,4 +1,4 @@
-import { RequestHandler } from "express";
+import { Request, Response } from "express";
 import dbPromise from "../config/db";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
@@ -8,7 +8,7 @@ import * as reportService from "../services/reportService"
 dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET;
 
-export const signup: RequestHandler = async (req, res) => {
+export const signup = async (req: Request, res: Response) => {
     const { username, name, password, role, adminRole } = req.body;
 
     if (!username || !password || !role || !name) {
@@ -110,7 +110,7 @@ export const signup: RequestHandler = async (req, res) => {
 
 
 
-export const login: RequestHandler = async (req, res) => {
+export const login = async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password ) {
         res.status(400).json({ message: "Error❌! All fields are required"});

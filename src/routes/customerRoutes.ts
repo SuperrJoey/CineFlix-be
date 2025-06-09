@@ -1,6 +1,6 @@
 import express from 'express';
 import { getAllCustomers, getCustomerById } from '../controllers/customersController';
-import { AuthRequest, authenticateToken } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 import { adminOnly, hasPermission } from '../middleware/adminOnly';
 
 const router = express.Router();

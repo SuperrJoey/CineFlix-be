@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AuthRequest } from "../middleware/auth";
+import { AuthRequest } from "../types/express";
 import * as reportService from "../services/reportService";
 import { json } from "stream/consumers";
 

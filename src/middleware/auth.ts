@@ -1,22 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { AuthRequest } from "../types/express";
 
 dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET;
-
-export interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    role: string;
-    adminId?: number,
-    adminRole?: string;
-    permissions?: Array<{
-      Role: string;
-      AccessLevel: string;
-    }>;
-  }
-}
 
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
