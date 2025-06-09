@@ -28,7 +28,7 @@ export const searchMovie = async (title: string) => {
         })
         //console.log(response.data);
         return response.data.results;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error searching movie:', error);
         throw error;
     }
@@ -37,9 +37,8 @@ export const searchMovie = async (title: string) => {
 export const getMovieDetails = async (tmbdId: number) => {
     try {
         const response = await tmdbAxios.get(`/movie/${tmbdId}`);
-        console.log(response);
         return response.data;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching movie details:', error);
         throw error;
     }

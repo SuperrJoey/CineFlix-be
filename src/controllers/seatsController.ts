@@ -28,7 +28,7 @@ setInterval(() => {
                     socketId: reservation.socketId
                 });
                 
-                console.log(`Released expired reservation for seat ${seatId} in showtime ${showtimeId}`);
+                // Released expired reservation
             }
         });
     });

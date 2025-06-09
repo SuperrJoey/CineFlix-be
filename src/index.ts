@@ -35,17 +35,13 @@ const io = new Server(server, {
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
-  
   // Handle joining a showtime room
   socket.on("join_showtime", (showtimeId) => {
     socket.join(`showtime_${showtimeId}`);
-    console.log(`User ${socket.id} joined showtime ${showtimeId}`);
   });
   
   // Handle seat selection
   socket.on("select_seat", ({ showtimeId, seatId, isSelected }) => {
-    console.log(`User ${socket.id} ${isSelected ? 'selected' : 'deselected'} seat ${seatId} in showtime ${showtimeId}`);
     // Broadcast to all other clients in the same showtime room
     socket.to(`showtime_${showtimeId}`).emit("seat_selection_updated", {
       seatId,
@@ -56,7 +52,6 @@ io.on("connection", (socket) => {
   
   // Handle disconnection
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
     // When a user disconnects, we could potentially release their temporary seat selections
     io.emit("user_disconnected", socket.id);
   });
@@ -97,8 +92,6 @@ app.use("/api/customers", customerRoutes);
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}! ✅`);
-  console.log(`🔗 API available at: http://localhost:${PORT}/api`);
-  console.log(`🌐 CORS enabled for: http://localhost:5173`);
   
   // Temporarily commented out to allow server startup without database
   // TODO: Uncomment when database is properly configured
@@ -123,7 +116,6 @@ server.listen(PORT, () => {
 
 // Shutting down
 process.on('SIGINT', () => {
-  console.log('Server shutting down...');
   
   // Temporarily commented out to allow server startup without database
   // TODO: Uncomment when database is properly configured

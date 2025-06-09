@@ -35,3 +35,5 @@ MIGRATION_COMPLETE.md
 
 src/pwid.txt
 src/dbqueries.txt
+
+run-migration.js

@@ -18,7 +18,7 @@ const pool = new Pool({
 
 // Test the connection
 pool.on('connect', () => {
-    console.log('Connected to PostgreSQL database ✅');
+    // Connection established
 });
 
 pool.on('error', (err: Error) => {

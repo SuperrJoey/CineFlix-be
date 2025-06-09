@@ -128,10 +128,7 @@ export const getShowtimesByMovie = async (req: Request, res: Response) => {
 export const addShowtime = async (req: AuthRequest, res: Response) => {
     const { movieId, startTime, totalSeats } = req.body;
 
-    console.log("Incoming request data:", req.body);
-
     if (!movieId || !startTime || !totalSeats) {
-        console.log("Validation failed: All fields are required.");
         res.status(400).json({ message: "All fields required here" });
         return;
     }
@@ -144,10 +141,7 @@ export const addShowtime = async (req: AuthRequest, res: Response) => {
             [parseInt(movieId)]
         );
 
-        console.log("Movie query result:", movieRows);
-
         if (movieRows.length === 0) {
-            console.log("Movie not found for ID:", movieId);
             res.status(404).json({ message: "Movie not found" });
             return;
         }
@@ -165,11 +159,8 @@ export const addShowtime = async (req: AuthRequest, res: Response) => {
                   (s.starttime < $3 AND s.endtime > $4) OR
                   (s.starttime >= $5 AND s.starttime < $6)
         `, [endTimeDate, startTimeDate, endTimeDate, startTimeDate, startTimeDate, endTimeDate]);
-    
-        console.log("Conflict check result:", conflictRows);
 
         if (conflictRows.length > 0) {
-            console.log("Conflict detected for the specified time slot");
             res.status(409).json({ message: "This timeslot conflicts with an existing showtime" });
             return;
         }
@@ -206,7 +197,6 @@ export const addShowtime = async (req: AuthRequest, res: Response) => {
                 }
             );
 
-            console.log("Showtime added successfully with ID:", showtimeId);
             res.status(201).json({
                 message: "Showtime added successfully",
                 showtimeId: showtimeId

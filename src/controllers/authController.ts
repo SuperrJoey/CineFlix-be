@@ -11,8 +11,6 @@ const SECRET_KEY = process.env.JWT_SECRET;
 export const signup: RequestHandler = async (req, res) => {
     const { username, name, password, role, adminRole } = req.body;
 
-    console.log("username : ", username, " name: ", name, " password:", password, " role:", role, " adminRole", adminRole);
-
     if (!username || !password || !role || !name) {
         res.status(400).json({ message: "Error❌! All fields are required" });
         return;
@@ -175,11 +173,8 @@ export const login: RequestHandler = async (req, res) => {
                 "SELECT Role, AccessLevel FROM permissions WHERE AdminID = $1",
                 [user.adminid]
             );
-            console.log("✅ Permissions fetched for AdminID", user.adminid, ":", permRows);
-
             // If admin has no permissions, create default ones
             if (permRows.length === 0) {
-                console.log("🔧 Creating default permissions for admin", user.adminid);
                 
                 const defaultPermissions = [
                     { role: 'movies', access: 'read, write, delete' },
@@ -202,13 +197,10 @@ export const login: RequestHandler = async (req, res) => {
                     [user.adminid]
                 );
                 permissions = newPermRows;
-                console.log("✅ Created default permissions:", permissions);
             } else {
                 permissions = permRows;
             }
         }
-
-        console.log("User object before token creation: ", user);
 
         const token = jwt.sign({ 
             id: user.userid, 
