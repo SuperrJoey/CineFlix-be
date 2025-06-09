@@ -1,15 +1,16 @@
 {
   "name": "tms-be",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Theater Management System Backend",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "prestart": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["theater", "management", "nodejs", "express"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",

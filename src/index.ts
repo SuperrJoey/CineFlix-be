@@ -14,8 +14,14 @@ import customerRoutes from "./routes/customerRoutes";
 import * as reportService from "./services/reportService";
 
 const app = express();
+
+// CORS configuration with environment-based origins
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [process.env.FRONTEND_URL || 'https://your-frontend-domain.com']
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
 app.use(cors({
-  origin: "http://localhost:5173", // Your frontend URL
+  origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
@@ -24,10 +30,10 @@ app.use(express.json());
 // Create HTTP server
 const server = http.createServer(app);
 
-// Create Socket.IO server
+// Create Socket.IO server with environment-based CORS
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }

@@ -59,8 +59,8 @@ export const addMovie = async (req: Request, res: Response) => {
             return;
         }
 
-        let posterUrl = null;
-        let overview = null;
+        let posterUrl: string | null = null;
+        let overview: string | null = null;
 
         try {
             const searchResults = await tmdbService.searchMovie(title);

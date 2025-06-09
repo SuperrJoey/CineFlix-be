@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { decode } from "punycode";
 
 dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET;
@@ -23,8 +22,10 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   
-  if (!token)  {res.status(401).json({ message: "Unauthorized access" });
-                return;}
+  if (!token) {
+    res.status(401).json({ message: "Unauthorized access" });
+    return;
+  }
   
   try {
     const decoded = jwt.verify(token, SECRET_KEY as string) as {
@@ -45,7 +46,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
     
     next();
   } catch (err) {
-     res.status(403).json({ message: "Invalid or expired token" });
-     return;
+    res.status(403).json({ message: "Invalid or expired token" });
+    return;
   }
 };
