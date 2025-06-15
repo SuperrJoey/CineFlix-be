@@ -17,7 +17,7 @@ const app = express();
 
 // CORS configuration with environment-based origins
 const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL || 'https://your-frontend-domain.com']
+  ? [process.env.FRONTEND_URL || 'https://cine-flix-inky.vercel.app/']
   : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({
