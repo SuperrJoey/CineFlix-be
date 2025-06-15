@@ -20,9 +20,13 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
   ? ['https://cine-flix-inky.vercel.app', 'https://cineflix-be.onrender.com']
   : ['http://localhost:5173', 'http://localhost:3000'];
 
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Allowed origins:', allowedOrigins);
+
 app.use(cors({
   origin: allowedOrigins,
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   credentials: true
 }));
 app.use(express.json());
