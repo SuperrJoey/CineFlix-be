@@ -106,7 +106,6 @@
     "resolveJsonModule": true,
 
     /* Skip lib check for faster compilation */
-    "skipLibCheck": true
   },
   "include": [
     "src/**/*"
