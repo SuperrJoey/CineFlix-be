@@ -3,7 +3,6 @@ node_modules/
 package-lock.json
 
 # TypeScript build artifacts
-dist/
 *.tsbuildinfo
 
 # Env files
@@ -37,3 +36,5 @@ src/pwid.txt
 src/dbqueries.txt
 
 run-migration.js
+
+readme.md

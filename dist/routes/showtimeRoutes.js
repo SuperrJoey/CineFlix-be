@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const showtimesController_1 = require("../controllers/showtimesController");
+const auth_1 = require("../middleware/auth");
+const adminOnly_1 = require("../middleware/adminOnly");
+const router = (0, express_1.Router)();
+router.get("/", showtimesController_1.getShowtimes);
+router.get("/:id", showtimesController_1.getShowtimeById);
+router.get("/movie/:movieId", showtimesController_1.getShowtimesByMovie);
+router.post("/", auth_1.authenticateToken, adminOnly_1.adminOnly, (0, adminOnly_1.hasPermission)("showtimes", "write"), showtimesController_1.addShowtime);
+router.put("/:id", auth_1.authenticateToken, adminOnly_1.adminOnly, (0, adminOnly_1.hasPermission)("showtimes", "write"), showtimesController_1.updateShowtime);
+router.delete("/:id", auth_1.authenticateToken, adminOnly_1.adminOnly, (0, adminOnly_1.hasPermission)("showtimes", "delete"), showtimesController_1.deleteShowtime);
+exports.default = router;

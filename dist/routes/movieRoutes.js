@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const movieController_1 = require("../controllers/movieController");
+const auth_1 = require("../middleware/auth");
+const adminOnly_1 = require("../middleware/adminOnly");
+const router = (0, express_1.Router)();
+router.get("/movies", movieController_1.getMovies);
+router.get("/movies/:id", movieController_1.getMovieById);
+router.post("/movies", auth_1.authenticateToken, adminOnly_1.adminOnly, (0, adminOnly_1.hasPermission)("movies", "write"), movieController_1.addMovie);
+router.post("/movies/update-metadata", auth_1.authenticateToken, adminOnly_1.adminOnly, (0, adminOnly_1.hasPermission)("movies", "write"), movieController_1.updateMoviesMetadata);
+exports.default = router;
